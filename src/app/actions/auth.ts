@@ -19,9 +19,11 @@ const SignUpSchema = z.object({
   organizationName: z.string().min(2, { message: "Organization name must be at least 2 characters." }),
   email: emailSchema,
   password: passwordSchema,
-  consent: z.preprocess((val) => val === 'true', z.literal(true, {
-    errorMap: () => ({ message: "You must agree to the terms and privacy policy." }),
-  })),
+  consent: z.preprocess((val) => val === 'on' || val === true, z.boolean()).pipe(
+    z.literal(true, {
+      errorMap: () => ({ message: "You must agree to the terms and privacy policy." }),
+    })
+  )
 });
 
 export async function signUpWithOrganization(prevState: any, formData: FormData) {
@@ -32,6 +34,7 @@ export async function signUpWithOrganization(prevState: any, formData: FormData)
       type: "error",
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Please correct the errors below.",
+      fields: Object.fromEntries(formData.entries())
     };
   }
 
@@ -84,7 +87,11 @@ export async function signUpWithOrganization(prevState: any, formData: FormData)
     if (error.code === "auth/email-already-in-use") {
       errorMessage = "This email is already registered.";
     }
-    return { type: "error", message: errorMessage };
+    return { 
+      type: "error", 
+      message: errorMessage,
+      fields: Object.fromEntries(formData.entries()) 
+    };
   }
 }
 

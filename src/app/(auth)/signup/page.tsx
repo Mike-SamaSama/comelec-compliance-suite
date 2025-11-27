@@ -57,17 +57,17 @@ export default function SignupPage() {
         )}
         <div className="space-y-2">
           <Label htmlFor="organizationName">Organization Name</Label>
-          <Input id="organizationName" name="organizationName" placeholder="Your Political Party" required />
+          <Input id="organizationName" name="organizationName" placeholder="Your Political Party" required defaultValue={state?.fields?.organizationName} />
           {state?.errors?.organizationName && <p className="text-sm font-medium text-destructive">{state.errors.organizationName[0]}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="name">Your Full Name</Label>
-          <Input id="name" name="name" placeholder="Juan Dela Cruz" required />
+          <Input id="name" name="name" placeholder="Juan Dela Cruz" required defaultValue={state?.fields?.name} />
           {state?.errors?.name && <p className="text-sm font-medium text-destructive">{state.errors.name[0]}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" placeholder="m@example.com" required />
+          <Input id="email" name="email" type="email" placeholder="m@example.com" required defaultValue={state?.fields?.email} />
           {state?.errors?.email && <p className="text-sm font-medium text-destructive">{state.errors.email[0]}</p>}
         </div>
         <div className="space-y-2">
@@ -76,7 +76,7 @@ export default function SignupPage() {
           {state?.errors?.password && <p className="text-sm font-medium text-destructive">{state.errors.password[0]}</p>}
         </div>
         <div className="flex items-start space-x-2 pt-2">
-          <Checkbox id="consent" name="consent" value="true" />
+          <Checkbox id="consent" name="consent" defaultChecked={state?.fields?.consent} />
           <div className="grid gap-1.5 leading-none">
             <label htmlFor="consent" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               I agree to the terms and privacy policy.

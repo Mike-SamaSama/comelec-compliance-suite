@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAdminApp } from './src/lib/firebase/server';
 
-// This file MUST be in the root of the project.
+import { NextRequest, NextResponse } from 'next/server';
+import { getAdminApp } from '@/lib/firebase/server';
+
 // This line is CRITICAL. It tells Next.js to run this middleware in a Node.js environment,
 // which is required for the Firebase Admin SDK.
 export const runtime = 'nodejs';
@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
 
   // 1. If there's no session cookie and the user is trying to access a protected page,
   //    redirect them to the login page.
-  if (!session && request.nextUrl.pathname.startsWith('/app')) {
+  if (!session && request.nextUrl.pathname.startsWith('/dashboard')) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);

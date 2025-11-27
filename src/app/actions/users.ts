@@ -70,7 +70,7 @@ const RemoveUserSchema = z.object({
   targetUserId: z.string(),
 });
 
-export async function removeUserFromOrg(prevState: any, formData: FormData): Promise<{ type: 'success' | 'error', message: string }> {
+export async function removeUserFromOrg(prevState: any, formData: FormData): Promise<{ type: 'success' | 'error' | null, message: string }> {
     try {
     const validatedFields = RemoveUserSchema.safeParse(Object.fromEntries(formData.entries()));
     if (!validatedFields.success) {

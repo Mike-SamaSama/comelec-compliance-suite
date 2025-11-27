@@ -1,4 +1,5 @@
 
+
 import type { User as FirebaseUser, IdTokenResult } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 
@@ -12,7 +13,7 @@ export interface UserProfile {
   organizationId: string | null;
   organizationName: string | null;
   role: UserRole;
-  isAdmin: boolean;
+  isTenantAdmin: boolean;
 }
 
 export interface Organization {

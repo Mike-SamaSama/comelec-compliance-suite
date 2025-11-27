@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { createContext, useEffect, useState, ReactNode } from 'react';
@@ -24,7 +25,7 @@ async function getUserProfile(uid: string): Promise<UserProfile | null> {
             organizationId: null,
             organizationName: 'Platform',
             role: 'platformAdmin',
-            isAdmin: true, // Platform admins are implicitly admins
+            isTenantAdmin: true, // Platform admins are implicitly tenant admins of all orgs from a permissions standpoint
         };
     }
 
@@ -50,7 +51,7 @@ async function getUserProfile(uid: string): Promise<UserProfile | null> {
     }
 
     const userData = tenantUserSnap.data();
-    const isAdmin = userData.isAdmin || false;
+    const isTenantAdmin = userData.isAdmin || false;
 
     return {
         uid,
@@ -59,8 +60,8 @@ async function getUserProfile(uid: string): Promise<UserProfile | null> {
         photoURL: userData.photoURL || null,
         organizationId,
         organizationName: orgSnap.data()?.name || 'My Organization',
-        role: isAdmin ? 'tenantAdmin' : 'tenantMember',
-        isAdmin,
+        role: isTenantAdmin ? 'tenantAdmin' : 'tenantMember',
+        isTenantAdmin,
     };
 }
 
@@ -125,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     loading,
     isPlatformAdmin: profile?.role === 'platformAdmin',
-    isTenantAdmin: profile?.role === 'tenantAdmin',
+    isTenantAdmin: profile?.isTenantAdmin ?? false,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

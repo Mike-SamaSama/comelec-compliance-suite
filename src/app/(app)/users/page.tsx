@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -13,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InviteUserDialog } from "@/components/users/invite-user-dialog";
+import { UserActions } from "@/components/users/user-actions";
 
 
 function getInitials(name: string | null | undefined) {
@@ -26,7 +28,7 @@ function getInitials(name: string | null | undefined) {
 
 
 export default function UsersPage() {
-  const { profile, isTenantAdmin } = useAuth();
+  const { profile, user: currentUser } = useAuth();
   
   // Construct a stable path string. The hook will only re-run when this path changes.
   const usersPath = profile ? `organizations/${profile.organizationId}/users` : null;
@@ -55,7 +57,7 @@ export default function UsersPage() {
     )
   }
 
-  if (!isTenantAdmin) {
+  if (!profile.isTenantAdmin) {
     return (
        <Card className="max-w-lg mx-auto mt-10">
         <CardHeader className="text-center">
@@ -123,7 +125,11 @@ export default function UsersPage() {
                             </TableCell>
                             <TableCell>{user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 'Pending'}</TableCell>
                             <TableCell className="text-right">
-                               <Button variant="ghost" size="icon">...</Button>
+                               <UserActions 
+                                 targetUser={user}
+                                 organizationId={profile.organizationId!}
+                                 isCurrentUser={currentUser?.uid === user.id}
+                               />
                             </TableCell>
                         </TableRow>
                     ))}
@@ -143,5 +149,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    

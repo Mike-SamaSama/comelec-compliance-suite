@@ -1,15 +1,12 @@
 
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
-import { errorEmitter } from '@/lib/firebase/error-emitter';
-import { FirestorePermissionError } from '@/lib/firebase/errors';
 import { auth } from '@/lib/firebase/client';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { createOrganizationForNewUser, CreateOrgState } from '@/app/actions/auth';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,7 +36,6 @@ type FormState = {
     consent?: string[];
     _form?: string[];
   };
-  permissionErrorContext?: any;
 };
 
 export default function SignupPage() {
@@ -65,44 +61,49 @@ export default function SignupPage() {
       
       const { email, password, displayName, organizationName } = parsed.data;
 
+      let user;
       try {
         // Step 1: Create user on the client
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+        user = userCredential.user;
         const idToken = await user.getIdToken();
 
-        // Step 2: Call server action to create DB records and session cookie
-        const orgFormData = new FormData();
-        orgFormData.append('uid', user.uid);
-        orgFormData.append('idToken', idToken);
-        orgFormData.append('displayName', displayName);
-        orgFormData.append('organizationName', organizationName);
-        orgFormData.append('email', email);
+        // Step 2: Call API route to create DB records and session cookie
+        const response = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            idToken,
+            uid: user.uid,
+            displayName,
+            organizationName,
+            email,
+          }),
+        });
         
-        // We pass an empty initial state to the server action
-        const orgState: CreateOrgState = await createOrganizationForNewUser({ type: null, message: '' }, orgFormData);
+        const result = await response.json();
 
-        if (orgState.type === 'error') {
-            if (orgState.permissionErrorContext) {
-                 if (process.env.NODE_ENV === 'development') {
-                    const permissionError = new FirestorePermissionError(orgState.permissionErrorContext);
-                    errorEmitter.emit('permission-error', permissionError);
-                 }
-            }
-          // If org creation fails, we should ideally delete the user.
-          setFormState({ 
-            message: orgState.message,
-            errors: (orgState as any).errors,
-          });
-          // Clean up created user if org creation fails
-          await user.delete();
-
-        } else {
+        if (response.ok) {
           // Success! Redirect to dashboard.
           router.push('/dashboard');
+        } else {
+            // If org creation fails, we should ideally delete the user.
+            if (user) {
+              await user.delete();
+            }
+            setFormState({ 
+              message: result.error || "Signup failed. Please try again.",
+              errors: result.errors || {},
+            });
         }
 
       } catch (error: any) {
+         if (user) {
+            // Clean up created user if something fails after creation
+            await user.delete();
+        }
         let message = "An unexpected error occurred.";
         const errors: FormState['errors'] = {};
         if (error.code === 'auth/email-already-in-use') {
@@ -126,7 +127,7 @@ export default function SignupPage() {
       </div>
 
       <form action={handleSubmit} className="space-y-4">
-        {formState?.message && !emailInUse && !formState.permissionErrorContext && (
+        {formState?.message && !emailInUse && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Signup Failed</AlertTitle>

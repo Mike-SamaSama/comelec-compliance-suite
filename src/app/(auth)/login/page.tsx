@@ -8,7 +8,6 @@ import { z } from "zod";
 import { AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
-import { createSessionCookie } from "@/app/actions/auth";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,26 +56,28 @@ export default function LoginPage() {
             // Step 2: Get the ID token
             const idToken = await userCredential.user.getIdToken();
 
-            // Step 3: Pass the ID token to the server action to create the session cookie
-            const sessionFormData = new FormData();
-            sessionFormData.append('idToken', idToken);
-            const result = await createSessionCookie(sessionFormData);
+            // Step 3: Send the ID token to our API route to create the session
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ idToken }),
+            });
 
-            // Step 4: Handle the result from the server action
-            if (result.status === 'success') {
-                // On success, we manually push the user to the dashboard.
-                // This is critical to break the redirect loop.
+            // Step 4: Handle the response from the API route
+            if (response.ok) {
+                // On success, the cookie is set. Navigate to the dashboard.
                 router.push('/dashboard');
             } else {
-                 setFormState({ message: result.error || "Failed to create a session. Please try again." });
+                 const errorData = await response.json();
+                 setFormState({ message: errorData.error || "Failed to create a session. Please try again." });
             }
 
         } catch (error: any) {
             let message = "An unexpected error occurred. Please try again.";
             if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
               message = "Invalid email or password. Please try again."
-            } else if (error.message.includes('fetch a valid Google OAuth2 access token')) {
-              message = "Server authentication failed. Please contact support.";
             } else {
               message = error.message || "An unexpected error occurred during login.";
             }

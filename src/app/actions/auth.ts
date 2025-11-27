@@ -20,8 +20,8 @@ const SignUpSchema = z.object({
   organizationName: z.string().min(2, { message: "Organization name must be at least 2 characters." }),
   email: emailSchema,
   password: passwordSchema,
-  consent: z.string().refine((val) => val === "on", {
-    message: "You must agree to the terms and privacy policy.",
+  consent: z.literal("on", {
+    errorMap: () => ({ message: "You must agree to the terms and privacy policy." }),
   }),
 });
 
@@ -47,9 +47,12 @@ export type SignUpState = {
 export async function signUpWithOrganization(prevState: SignUpState, formData: FormData): Promise<SignUpState> {
   const validatedFields = SignUpSchema.safeParse(Object.fromEntries(formData.entries()));
   
-  // Keep fields for repopulating form
-  const fields = Object.fromEntries(formData.entries());
-  delete (fields as any).password;
+  const fields = {
+    name: formData.get('name') as string,
+    organizationName: formData.get('organizationName') as string,
+    email: formData.get('email') as string,
+    consent: formData.get('consent') as string,
+  };
 
 
   if (!validatedFields.success) {
@@ -57,7 +60,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
       type: "error",
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Please correct the errors below.",
-      fields: fields as SignUpState['fields'],
+      fields: fields,
     };
   }
 
@@ -118,7 +121,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
       type: "error", 
       message: errorMessage,
       errors: fieldErrors,
-      fields: fields as SignUpState['fields'],
+      fields: fields,
     };
   }
 }

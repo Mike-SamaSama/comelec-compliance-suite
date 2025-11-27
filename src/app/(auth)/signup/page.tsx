@@ -74,7 +74,7 @@ export default function SignupPage() {
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" placeholder="m@example.com" required defaultValue={state?.fields?.email} />
-          {state?.errors?.email && <p className="text-sm font-medium text-destructive">{state.errors.email[0]}</p>}
+          {state?.errors?.email && <p className="text-sm font-medium text-destructive" dangerouslySetInnerHTML={{ __html: state.errors.email[0] }} />}
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>

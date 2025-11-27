@@ -53,6 +53,9 @@ export async function createOrganizationForNewUser(prevState: CreateOrgState, fo
   try {
     // Verify the ID token to ensure the request is from an authenticated user
     const decodedToken = await adminAuth.verifyIdToken(idToken);
+    if (decodedToken.uid !== uid) {
+        throw new Error("ID token does not match user UID.");
+    }
     
     // Pre-check: Does an organization with this name already exist?
     const orgsRef = adminDb.collection("organizations");

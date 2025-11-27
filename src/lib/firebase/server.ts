@@ -1,35 +1,23 @@
 
 "use server";
 
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, applicationDefault } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 // This is a server-only file.
 
-let adminApp: App | undefined;
-let adminAuth: Auth | undefined;
-let adminDb: Firestore | undefined;
+// Initialize the Firebase Admin SDK.
+// This is the most robust way for a managed environment like App Hosting.
+// It initializes only once when the server module is first loaded.
+const adminApp: App = getApps().length
+  ? getApps()[0]!
+  : initializeApp({
+      credential: applicationDefault(),
+    });
 
-function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
-  if (adminApp && adminAuth && adminDb) {
-    return { app: adminApp, auth: adminAuth, db: adminDb };
-  }
-
-  // In a managed cloud environment, initializeApp() without arguments 
-  // uses Application Default Credentials (ADC), which is the most secure and standard method.
-  // We check if an app is already initialized to prevent re-initialization.
-  if (!getApps().length) {
-    adminApp = initializeApp();
-  } else {
-    adminApp = getApps()[0];
-  }
-  
-  adminAuth = getAuth(adminApp);
-  adminDb = getFirestore(adminApp);
-
-  return { app: adminApp, auth: adminAuth, db: adminDb };
-}
+const adminAuth: Auth = getAuth(adminApp);
+const adminDb: Firestore = getFirestore(adminApp);
 
 
 /**
@@ -41,8 +29,7 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
  */
 export async function getIsTenantAdmin(userId: string, organizationId:string): Promise<boolean> {
   try {
-    const { db } = getAdminApp();
-    const userDocRef = db.collection('organizations').doc(organizationId).collection('users').doc(userId);
+    const userDocRef = adminDb.collection('organizations').doc(organizationId).collection('users').doc(userId);
     const userDoc = await userDocRef.get();
 
     if (!userDoc.exists) {
@@ -59,5 +46,5 @@ export async function getIsTenantAdmin(userId: string, organizationId:string): P
   }
 }
 
-// Export the lazy-loading function instead of the initialized instances
-export { getAdminApp };
+// Export the initialized instances directly for use in other server actions.
+export { adminApp, adminAuth, adminDb };

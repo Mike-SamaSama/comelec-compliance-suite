@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { app } from "@/lib/firebase/client"; 
-import { getAdminApp, getIsTenantAdmin } from "@/lib/firebase/server";
+import { adminAuth, adminDb, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
 
 
@@ -38,7 +38,6 @@ export type CreateOrgState = {
 };
 
 export async function createOrganizationForNewUser(prevState: CreateOrgState, formData: FormData): Promise<CreateOrgState> {
-  const { auth: adminAuth, db: adminDb } = getAdminApp();
   const validatedFields = CreateOrgSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
@@ -157,7 +156,6 @@ export type SignInState = {
 }
 
 export async function signInWithEmail(prevState: SignInState, formData: FormData): Promise<SignInState> {
-    const { auth: adminAuth } = getAdminApp();
     const validatedFields = SignInSchema.safeParse(Object.fromEntries(formData.entries()));
 
     if (!validatedFields.success) {
@@ -211,7 +209,6 @@ export type InviteUserState = {
 
 
 export async function inviteUserToOrganization(prevState: InviteUserState, formData: FormData): Promise<InviteUserState> {
-  const { auth: adminAuth, db: adminDb } = getAdminApp();
   const validatedFields = InviteUserSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {

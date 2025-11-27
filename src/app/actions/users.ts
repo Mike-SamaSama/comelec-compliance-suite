@@ -4,11 +4,10 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { getAdminApp, getIsTenantAdmin } from '@/lib/firebase/server';
+import { adminAuth, adminDb, getIsTenantAdmin } from '@/lib/firebase/server';
 
 // --- Helper to verify admin privileges ---
 async function verifyTenantAdmin(organizationId: string): Promise<string> {
-  const { auth: adminAuth } = getAdminApp();
   const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) {
     throw new Error('Authentication required.');
@@ -49,7 +48,6 @@ export async function updateUserRole(formData: FormData): Promise<{ type: 'succe
       throw new Error("You cannot change your own role.");
     }
 
-    const { db: adminDb } = getAdminApp();
     const userRef = adminDb.doc(`organizations/${organizationId}/users/${targetUserId}`);
 
     await userRef.update({ isAdmin });
@@ -85,7 +83,6 @@ export async function removeUserFromOrg(prevState: any, formData: FormData): Pro
         throw new Error("You cannot remove yourself from the organization.");
     }
     
-    const { db: adminDb } = getAdminApp();
     const userRef = adminDb.doc(`organizations/${organizationId}/users/${targetUserId}`);
 
     await userRef.delete();

@@ -7,7 +7,7 @@ import {
   getAuth,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { app } from "@/lib/firebase/client"; 
 import { adminAuth, adminDb, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
@@ -132,9 +132,11 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     // Commit the batch
     await batch.commit();
 
-    // On success, redirect to login page for user to sign in.
-    // This is a more robust pattern than trying to create a session cookie here.
-    return redirect('/login?signup=success');
+    // Step 3: Create a session cookie for the new user and log them in.
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    const sessionCookie = await adminAuth.createSessionCookie(userRecord.uid, { expiresIn });
+    cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
+
 
   } catch (error: any) {
     let errorMessage = "An unexpected error occurred during signup.";
@@ -150,6 +152,8 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     }
     return { type: 'error', message: errorMessage, errors, fields };
   }
+  
+  return redirect('/dashboard');
 }
 
 

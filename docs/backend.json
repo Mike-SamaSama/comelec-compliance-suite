@@ -1,0 +1,174 @@
+{
+  "entities": {
+    "Organization": {
+      "title": "Organization",
+      "description": "Represents a tenant organization on the platform.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The legal name of the organization."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "The UID of the user who first registered the organization."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the organization was created."
+        }
+      },
+      "required": ["name", "ownerId", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "A user's profile within a specific tenant organization.",
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        },
+        "photoURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the user's profile picture."
+        },
+        "isAdmin": {
+          "type": "boolean",
+          "description": "Flag indicating if the user is a Tenant Administrator."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the user joined the organization."
+        }
+      },
+      "required": ["displayName", "email", "isAdmin", "createdAt"]
+    },
+    "PlatformAdmin": {
+      "title": "Platform Administrator",
+      "description": "A user with global administrative privileges over the entire platform.",
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "The admin's name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The admin's email address."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the admin was granted privileges."
+        }
+      },
+      "required": ["displayName", "email", "createdAt"]
+    },
+    "UserOrgMapping": {
+        "title": "User to Organization Mapping",
+        "description": "A mapping to quickly find a user's organization ID upon login.",
+        "type": "object",
+        "properties": {
+            "organizationId": {
+                "type": "string",
+                "description": "The ID of the organization the user belongs to."
+            }
+        },
+        "required": ["organizationId"]
+    },
+    "Consent": {
+        "title": "User Consent",
+        "description": "A record of a user's consent to legal terms and privacy policies.",
+        "type": "object",
+        "properties": {
+            "userId": {"type": "string"},
+            "termsOfService": {"type": "boolean"},
+            "privacyPolicy": {"type": "boolean"},
+            "timestamp": {"type": "string", "format": "date-time"}
+        },
+        "required": ["userId", "termsOfService", "privacyPolicy", "timestamp"]
+    },
+    "Document": {
+        "title": "Compliance Document",
+        "description": "A file uploaded by a tenant user for compliance purposes.",
+        "type": "object",
+        "properties": {
+            "fileName": {"type": "string"},
+            "fileType": {"type": "string"},
+            "storagePath": {"type": "string"},
+            "uploadedBy": {"type": "string"},
+            "uploadedAt": {"type": "string", "format": "date-time"}
+        },
+        "required": ["fileName", "storagePath", "uploadedBy", "uploadedAt"]
+    },
+    "MasterChecklistItem": {
+        "title": "Master Checklist Item",
+        "description": "A global compliance requirement managed by Platform Admins.",
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "description": {"type": "string"},
+            "dueDate": {"type": "string", "format": "date"}
+        },
+        "required": ["title"]
+    },
+    "DocumentTemplate": {
+        "title": "Document Template",
+        "description": "A global template for AI document drafting, managed by Platform Admins.",
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "content": {"type": "string"},
+            "formFields": { "type": "array", "items": {"type": "string"} }
+        },
+        "required": ["name", "content"]
+    }
+  },
+  "auth": {
+    "providers": ["email"]
+  },
+  "firestore": {
+    "/organizations/{organizationId}": {
+      "schema": { "$ref": "#/entities/Organization" },
+      "description": "Root collection for all tenant organizations."
+    },
+    "/organizations/{organizationId}/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Sub-collection of users within a specific organization."
+    },
+    "/organizations/{organizationId}/documents/{documentId}": {
+        "schema": { "$ref": "#/entities/Document" },
+        "description": "Sub-collection of documents for a specific organization."
+    },
+    "/platform_admins/{userId}": {
+      "schema": { "$ref": "#/entities/PlatformAdmin" },
+      "description": "Root collection identifying users with global platform admin rights."
+    },
+    "/user_org_mappings/{userId}": {
+      "schema": { "$ref": "#/entities/UserOrgMapping" },
+      "description": "Root collection for mapping a user's UID to their organization ID for efficient login."
+    },
+    "/consents/{userId}": {
+      "schema": { "$ref": "#/entities/Consent" },
+      "description": "Root collection for logging user consent to legal policies."
+    },
+    "/master_checklist/{checklistItemId}": {
+        "schema": { "$ref": "#/entities/MasterChecklistItem" },
+        "description": "Global list of compliance requirements."
+    },
+    "/document_templates/{templateId}": {
+        "schema": { "$ref": "#/entities/DocumentTemplate" },
+        "description": "Global list of document templates for AI drafting."
+    }
+  }
+}

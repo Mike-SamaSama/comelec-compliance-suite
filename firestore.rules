@@ -1,0 +1,99 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isPlatformAdmin() {
+      return exists(/databases/$(database)/documents/platform_admins/$(request.auth.uid));
+    }
+    
+    function isMemberOf(organizationId) {
+      return exists(/databases/$(database)/documents/organizations/$(organizationId)/users/$(request.auth.uid));
+    }
+
+    function isTenantAdminOf(organizationId) {
+      let userDoc = get(/databases/$(database)/documents/organizations/$(organizationId)/users/$(request.auth.uid));
+      return isMemberOf(organizationId) && userDoc.data.isAdmin == true;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // --- Root Collections ---
+
+    // Organizations:
+    // - Creation: Any authenticated user can create an organization during signup.
+    // - Read: Only Platform Admins or members of that specific organization.
+    // - Update: Only Tenant Admins of that specific organization.
+    // - Delete: Only Tenant Admins of that specific organization.
+    match /organizations/{organizationId} {
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow read: if isPlatformAdmin() || isMemberOf(organizationId);
+      allow update, delete: if isTenantAdminOf(organizationId);
+
+      // Organization Users:
+      // - Read: All members of the organization and Platform Admins can see the user list.
+      // - Create (Invite): Only Tenant Admins can add new users.
+      // - Update: A user can update their own profile; a Tenant Admin can update any profile (e.g., to grant/revoke admin).
+      // - Delete: Only Tenant Admins can remove users.
+      match /users/{userId} {
+        allow read: if isPlatformAdmin() || isMemberOf(organizationId);
+        allow create: if isTenantAdminOf(organizationId);
+        allow update: if isOwner(userId) || isTenantAdminOf(organizationId);
+        allow delete: if isTenantAdminOf(organizationId);
+      }
+      
+      // Organization Documents:
+      // - CRUD: Any member of the organization can create, read, update, and delete documents.
+      // - Platform admins can read for oversight.
+      match /documents/{documentId} {
+        allow read: if isPlatformAdmin() || isMemberOf(organizationId);
+        allow create, update, delete: if isMemberOf(organizationId);
+      }
+    }
+
+    // User-to-Org Mappings:
+    // - Creation: Created during signup, must match the user's UID.
+    // - Read: The user themselves or a Platform Admin can read the mapping.
+    // - No updates or deletes allowed to prevent tampering.
+    match /user_org_mappings/{userId} {
+      allow read: if isOwner(userId) || isPlatformAdmin();
+      allow create: if isOwner(userId);
+      allow update, delete: if false;
+    }
+    
+    // Platform Admins:
+    // - This collection is read-only from the client.
+    // - Granting/revoking admin access must be done server-side or manually in the console.
+    match /platform_admins/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Managed server-side
+    }
+
+    // Consents:
+    // - A user can only create a consent document for themselves.
+    // - Only readable by the user who consented or a Platform Admin.
+    match /consents/{userId} {
+        allow read: if isOwner(userId) || isPlatformAdmin();
+        allow create: if isOwner(userId);
+        allow update, delete: if false;
+    }
+
+    // Global Resources (Managed by Platform Admins only)
+    match /master_checklist/{checklistItemId} {
+        allow read: if isAuthenticated();
+        allow write: if isPlatformAdmin();
+    }
+    
+    match /document_templates/{templateId} {
+        allow read: if isAuthenticated();
+        allow write: if isPlatformAdmin();
+    }
+  }
+}

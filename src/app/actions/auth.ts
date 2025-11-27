@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
-import { doc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { doc, writeBatch, serverTimestamp, collection } from "firebase/firestore";
 import { app, db } from "@/lib/firebase/client"; // Use client for auth on server
 import { redirect } from "next/navigation";
 
@@ -80,7 +80,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     const batch = writeBatch(db);
 
     // 1. Create the new organization
-    const orgRef = doc(db, "organizations", crypto.randomUUID());
+    const orgRef = doc(collection(db, "organizations"));
     const orgId = orgRef.id;
 
     batch.set(orgRef, {
@@ -136,8 +136,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     };
   }
   
-  // A redirect in a server action MUST be returned, not just called.
-  return redirect('/dashboard');
+  return { type: 'success', message: 'Account created successfully!' };
 }
 
 

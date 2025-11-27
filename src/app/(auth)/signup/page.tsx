@@ -35,7 +35,7 @@ export default function SignupPage() {
     if (state.type === 'success') {
       router.push('/dashboard');
     }
-  }, [state.type, router]);
+  }, [state, router]);
   
   const emailInUse = state?.errors?.email?.[0].includes('already in use');
 

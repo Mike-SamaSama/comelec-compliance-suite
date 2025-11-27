@@ -16,9 +16,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router]);
 
+  // The AuthProvider handles the loading state with a global loading screen.
+  // If loading is finished and there's still no user, the effect above will redirect.
+  // We return null here to prevent the AppShell from flashing before the user is confirmed.
   if (loading || !user) {
-    // The AuthProvider renders a global loading screen, so we can return null
-    // here to prevent the app shell from flashing before the user is authenticated.
     return null;
   }
 

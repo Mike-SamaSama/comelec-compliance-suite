@@ -48,6 +48,23 @@ export type SignUpState = {
 
 
 export async function signUpWithOrganization(prevState: SignUpState, formData: FormData): Promise<SignUpState> {
+  
+  // NOTE: This function is temporarily disabled to prevent server crashes due to Admin SDK initialization issues.
+  // It will be restored in a later phase.
+  
+  return {
+    type: "error",
+    message: "Sign-up is temporarily disabled. Please try again later.",
+    fields: {
+      displayName: formData.get('displayName') as string,
+      organizationName: formData.get('organizationName') as string,
+      email: formData.get('email') as string,
+      consent: formData.get('consent') as string,
+    }
+  }
+
+
+  /*
   const { auth: adminAuth, db: adminDb } = getAdminApp();
 
   const validatedFields = SignUpSchema.safeParse(Object.fromEntries(formData.entries()));
@@ -159,6 +176,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
   }
   
   return redirect('/dashboard');
+  */
 }
 
 

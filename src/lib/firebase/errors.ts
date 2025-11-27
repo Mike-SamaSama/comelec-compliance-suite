@@ -1,7 +1,4 @@
-
-"use server";
-
-// This is a server-only module.
+// This module can be used on both server and client.
 
 export type SecurityRuleContext = {
   path: string;
@@ -11,7 +8,7 @@ export type SecurityRuleContext = {
 
 /**
  * A custom error class to provide detailed context about Firestore Security Rule failures.
- * This is intended for server-side use in development to surface rich errors to the client.
+ * This is intended for use in development to surface rich errors to the client.
  */
 export class FirestorePermissionError extends Error {
   public context: SecurityRuleContext;

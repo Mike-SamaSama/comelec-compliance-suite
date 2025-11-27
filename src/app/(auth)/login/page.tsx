@@ -56,7 +56,7 @@ export default function LoginPage() {
         <SubmitButton />
       </form>
 
-      <p className="text-right text-sm text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground">
         Don't have an account?{" "}
         <Link href="/signup" className="underline underline-offset-4 hover:text-primary">
           Sign Up

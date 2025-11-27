@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
@@ -79,8 +78,9 @@ export default function SignupPage() {
         orgFormData.append('displayName', displayName);
         orgFormData.append('organizationName', organizationName);
         orgFormData.append('email', email);
-
-        const orgState:CreateOrgState = await createOrganizationForNewUser({ type: null, message: '' }, orgFormData);
+        
+        // We pass an empty initial state to the server action
+        const orgState: CreateOrgState = await createOrganizationForNewUser({ type: null, message: '' }, orgFormData);
 
         if (orgState.type === 'error') {
             if (orgState.permissionErrorContext) {

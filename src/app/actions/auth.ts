@@ -21,12 +21,20 @@ export async function createSessionCookie(formData: FormData): Promise<{ status:
     const { idToken } = validatedFields.data;
 
     try {
+        // Verify the ID token to ensure it's valid.
+        // This is a crucial security step.
+        await adminAuth.verifyIdToken(idToken);
+        
         const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
         const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
         cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
         return { status: "success" };
     } catch (error: any) {
         console.error("Error creating session cookie:", error);
+        // Provide a more specific error if it's the known server auth issue
+        if (error.message.includes('fetch a valid Google OAuth2 access token')) {
+            return { status: "error", error: "Server authentication error. Could not verify user session." };
+        }
         return { status: "error", error: "Failed to create session." };
     }
 }

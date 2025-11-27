@@ -51,26 +51,34 @@ export default function LoginPage() {
         const { email, password } = parsed.data;
 
         try {
+            // Step 1: Sign in on the client
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            
+            // Step 2: Get the ID token
             const idToken = await userCredential.user.getIdToken();
 
+            // Step 3: Pass the ID token to the server action to create the session cookie
             const sessionFormData = new FormData();
             sessionFormData.append('idToken', idToken);
             const result = await createSessionCookie(sessionFormData);
 
+            // Step 4: Handle the result from the server action
             if (result.status === 'success') {
                 // On success, we manually push the user to the dashboard.
+                // This is critical to break the redirect loop.
                 router.push('/dashboard');
             } else {
                  setFormState({ message: result.error || "Failed to create a session. Please try again." });
             }
 
         } catch (error: any) {
-            let message = "Invalid login credentials. Please try again.";
+            let message = "An unexpected error occurred. Please try again.";
             if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
               message = "Invalid email or password. Please try again."
+            } else if (error.message.includes('fetch a valid Google OAuth2 access token')) {
+              message = "Server authentication failed. Please contact support.";
             } else {
-              message = error.message || "An unexpected error occurred. Please try again.";
+              message = error.message || "An unexpected error occurred during login.";
             }
             setFormState({ message, errors: {_form: [message]} });
         }
@@ -108,7 +116,7 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="px-8 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{' '}
         <Link href="/signup" className="underline underline-offset-4 hover:text-primary">
           Sign Up

@@ -59,6 +59,7 @@ export default function LoginPage() {
             const result = await createSessionCookie(sessionFormData);
 
             if (result.status === 'success') {
+                // On success, we manually push the user to the dashboard.
                 router.push('/dashboard');
             } else {
                  setFormState({ message: result.error || "Failed to create a session. Please try again." });

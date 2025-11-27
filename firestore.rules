@@ -29,11 +29,15 @@ service cloud.firestore {
 
     // Organizations:
     // - Creation: Any authenticated user can create an organization during signup.
+    //             The document must have exactly the required fields.
     // - Read: Only Platform Admins or members of that specific organization.
     // - Update: Only Tenant Admins of that specific organization.
     // - Delete: Only Tenant Admins of that specific organization.
     match /organizations/{organizationId} {
-      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+                      request.resource.data.ownerId == request.auth.uid &&
+                      request.resource.data.keys().hasAll(['name', 'ownerId', 'createdAt']) &&
+                      request.resource.data.size() == 3;
       allow read: if isPlatformAdmin() || isMemberOf(organizationId);
       allow update, delete: if isTenantAdminOf(organizationId);
 

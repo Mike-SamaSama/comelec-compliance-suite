@@ -71,9 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        try {
+      try {
+        if (firebaseUser) {
+          setUser(firebaseUser);
           const userProfile = await getUserProfile(firebaseUser.uid);
           if (userProfile) {
             setProfile(userProfile);
@@ -84,19 +84,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setProfile(null);
             setUser(null);
           }
-        } catch (error) {
-            console.error("Error fetching user profile:", error);
-            // Sign out on profile fetch error
-            await auth.signOut();
-            setProfile(null);
-            setUser(null);
+        } else {
+          setUser(null);
+          setProfile(null);
         }
-      } else {
-        setUser(null);
-        setProfile(null);
+      } catch (error) {
+          console.error("Error during auth state change:", error);
+          // Sign out on any error during the process
+          await auth.signOut();
+          setProfile(null);
+          setUser(null);
+      } finally {
+        // Set loading to false after the entire auth state check is complete.
+        setLoading(false);
       }
-      // Set loading to false after the initial auth state check is complete.
-      setLoading(false);
     });
 
     // Cleanup subscription on unmount

@@ -79,17 +79,18 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
 
     const batch = writeBatch(db);
 
-    // 1. Create the new organization
+    // 1. Create a ref for the new organization to get a unique ID
     const orgRef = doc(collection(db, "organizations"));
     const orgId = orgRef.id;
 
+    // Now use that ID to set the data
     batch.set(orgRef, {
       name: organizationName,
       ownerId: user.uid,
       createdAt: serverTimestamp(),
     });
     
-    // 2. Create the user's profile within the organization subcollection
+    // 2. Create the user's profile within the organization subcollection, using the same ID
     const userInOrgRef = doc(db, "organizations", orgId, "users", user.uid);
     batch.set(userInOrgRef, {
       displayName: displayName,
@@ -136,6 +137,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     };
   }
   
+  // This will be caught by the client and handled with a router.push
   return { type: 'success', message: 'Account created successfully!' };
 }
 

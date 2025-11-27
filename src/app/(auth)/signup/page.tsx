@@ -1,44 +1,112 @@
 
-
 'use client';
 
-import { useActionState, useEffect } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signUpWithOrganization, type SignUpState } from '@/app/actions/auth';
+import { z } from 'zod';
+
+import { auth } from '@/lib/firebase/client';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createOrganizationForNewUser } from '@/app/actions/auth';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, UserPlus } from 'lucide-react';
+import { AlertCircle, UserPlus, Loader2 } from 'lucide-react';
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? 'Creating Account...' : <><UserPlus className="mr-2 h-4 w-4" /> Create Account</>}
-    </Button>
-  );
-}
 
-const initialState: SignUpState = {
-  type: null,
-  message: '',
+const SignUpSchema = z.object({
+  displayName: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  organizationName: z.string().min(2, { message: "Organization name must be at least 2 characters." }),
+  email: z.string().email({ message: "Invalid email address." }),
+  password: z.string().min(8, { message: "Password must be at least 8 characters long." }),
+  consent: z.literal(true, {
+    errorMap: () => ({ message: "You must agree to the terms and privacy policy." }),
+  }),
+});
+
+type FormState = {
+  message: string;
+  errors?: {
+    displayName?: string[];
+    organizationName?: string[];
+    email?: string[];
+    password?: string[];
+    consent?: string[];
+    _form?: string[];
+  };
 };
 
 export default function SignupPage() {
   const router = useRouter();
-  const [state, formAction] = useActionState(signUpWithOrganization, initialState);
+  const [isPending, startTransition] = useTransition();
+  const [formState, setFormState] = useState<FormState>({ message: '' });
 
-  useEffect(() => {
-    if (state.type === 'success') {
-      router.push('/dashboard');
-    }
-  }, [state, router]);
-  
-  const emailInUse = state?.errors?.email?.[0].includes('already in use');
+  const handleSubmit = (formData: FormData) => {
+    startTransition(async () => {
+      const data = Object.fromEntries(formData);
+      const parsed = SignUpSchema.safeParse({
+        ...data,
+        consent: data.consent === 'on',
+      });
+
+      if (!parsed.success) {
+        setFormState({
+          message: "Please correct the errors below.",
+          errors: parsed.error.flatten().fieldErrors,
+        });
+        return;
+      }
+      
+      const { email, password, displayName, organizationName } = parsed.data;
+
+      try {
+        // Step 1: Create user on the client
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        const idToken = await user.getIdToken();
+
+        // Step 2: Call server action to create DB records
+        const orgFormData = new FormData();
+        orgFormData.append('uid', user.uid);
+        orgFormData.append('idToken', idToken);
+        orgFormData.append('displayName', displayName);
+        orgFormData.append('organizationName', organizationName);
+        orgFormData.append('email', email);
+
+        const orgState = await createOrganizationForNewUser({ type: null, message: '' }, orgFormData);
+
+        if (orgState.type === 'error') {
+          // If org creation fails, we should ideally delete the user.
+          // For now, we'll just show the error.
+          setFormState({ 
+            message: orgState.message,
+            errors: orgState.errors,
+          });
+          // Clean up created user if org creation fails
+          await user.delete();
+
+        } else {
+          // Success! Redirect to dashboard.
+          router.push('/dashboard');
+        }
+
+      } catch (error: any) {
+        let message = "An unexpected error occurred.";
+        const errors: FormState['errors'] = {};
+        if (error.code === 'auth/email-already-in-use') {
+            message = "This email is already in use.";
+            errors.email = [message];
+        }
+        setFormState({ message, errors });
+      }
+    });
+  };
+
+  const emailInUse = formState?.errors?.email?.[0].includes('already in use');
 
   return (
     <div className="space-y-6">
@@ -49,29 +117,29 @@ export default function SignupPage() {
         </p>
       </div>
 
-      <form action={formAction} className="space-y-4">
-        {state?.type === 'error' && state.message && !emailInUse && (
+      <form action={handleSubmit} className="space-y-4">
+        {formState?.message && !emailInUse && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Signup Failed</AlertTitle>
-            <AlertDescription>{state.message}</AlertDescription>
+            <AlertDescription>{formState.message}</AlertDescription>
           </Alert>
         )}
         <div className="space-y-2">
           <Label htmlFor="organizationName">Organization Name</Label>
-          <Input id="organizationName" name="organizationName" placeholder="Your Political Party" required defaultValue={state?.fields?.organizationName} />
-          {state?.errors?.organizationName && <p className="text-sm font-medium text-destructive">{state.errors.organizationName[0]}</p>}
+          <Input id="organizationName" name="organizationName" placeholder="Your Political Party" required />
+          {formState?.errors?.organizationName && <p className="text-sm font-medium text-destructive pt-1">{formState.errors.organizationName[0]}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="displayName">Your Full Name</Label>
-          <Input id="displayName" name="displayName" placeholder="Juan Dela Cruz" required defaultValue={state?.fields?.displayName} />
-          {state?.errors?.displayName && <p className="text-sm font-medium text-destructive">{state.errors.displayName[0]}</p>}
+          <Input id="displayName" name="displayName" placeholder="Juan Dela Cruz" required />
+          {formState?.errors?.displayName && <p className="text-sm font-medium text-destructive pt-1">{formState.errors.displayName[0]}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" placeholder="m@example.com" required defaultValue={state?.fields?.email} />
+          <Input id="email" name="email" type="email" placeholder="m@example.com" required />
           {emailInUse ? (
-            <p className="text-sm font-medium text-destructive">
+            <p className="text-sm font-medium text-destructive pt-1">
               This email address is already in use. Please{' '}
               <Link href="/login" className="font-bold underline">
                 login
@@ -79,16 +147,16 @@ export default function SignupPage() {
               instead.
             </p>
           ) : (
-            state?.errors?.email && <p className="text-sm font-medium text-destructive">{state.errors.email[0]}</p>
+            formState?.errors?.email && <p className="text-sm font-medium text-destructive pt-1">{formState.errors.email[0]}</p>
           )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
           <Input id="password" name="password" type="password" required />
-          {state?.errors?.password && <p className="text-sm font-medium text-destructive">{state.errors.password[0]}</p>}
+          {formState?.errors?.password && <p className="text-sm font-medium text-destructive pt-1">{formState.errors.password[0]}</p>}
         </div>
         <div className="flex items-start space-x-2 pt-2">
-          <Checkbox id="consent" name="consent" defaultChecked={!!state?.fields?.consent} />
+          <Checkbox id="consent" name="consent" />
           <div className="grid gap-1.5 leading-none">
             <label htmlFor="consent" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               I agree to the terms and privacy policy.
@@ -98,9 +166,12 @@ export default function SignupPage() {
             </p>
           </div>
         </div>
-        {state?.errors?.consent && <p className="text-sm font-medium text-destructive">{state.errors.consent[0]}</p>}
+        {formState?.errors?.consent && <p className="text-sm font-medium text-destructive">{formState.errors.consent[0]}</p>}
 
-        <SubmitButton />
+        <Button type="submit" className="w-full" disabled={isPending}>
+          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+          {isPending ? 'Creating Account...' : 'Create Account'}
+        </Button>
       </form>
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{' '}

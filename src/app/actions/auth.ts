@@ -17,62 +17,42 @@ const auth = getAuth(app);
 const emailSchema = z.string().email({ message: "Invalid email address." });
 const passwordSchema = z.string().min(8, { message: "Password must be at least 8 characters long." });
 
-const SignUpSchema = z.object({
+// This action is now only responsible for creating the DB records, not the user.
+const CreateOrgSchema = z.object({
   displayName: z.string().min(2, { message: "Name must be at least 2 characters." }),
   organizationName: z.string().min(2, { message: "Organization name must be at least 2 characters." }),
   email: emailSchema,
-  password: passwordSchema,
-  consent: z.literal('on', {
-    errorMap: () => ({ message: "You must agree to the terms and privacy policy." }),
-  }),
+  uid: z.string(),
+  idToken: z.string(),
 });
 
-export type SignUpState = {
+export type CreateOrgState = {
   type: "error" | "success" | null;
   message: string;
   errors?: {
-    displayName?: string[];
     organizationName?: string[];
-    email?: string[];
-    password?: string[];
-    consent?: string[];
     _form?: string[];
-  };
-  fields?: {
-    displayName: string;
-    organizationName: string;
-    email: string;
-    consent: string;
   };
 };
 
-
-export async function signUpWithOrganization(prevState: SignUpState, formData: FormData): Promise<SignUpState> {
+export async function createOrganizationForNewUser(prevState: CreateOrgState, formData: FormData): Promise<CreateOrgState> {
   const { auth: adminAuth, db: adminDb } = getAdminApp();
-
-  const validatedFields = SignUpSchema.safeParse(Object.fromEntries(formData.entries()));
-  
-  const fields = {
-    displayName: formData.get('displayName') as string,
-    organizationName: formData.get('organizationName') as string,
-    email: formData.get('email') as string,
-    consent: formData.get('consent') as string,
-  };
-
+  const validatedFields = CreateOrgSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
-    return {
-      type: "error",
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: "Please correct the errors below.",
-      fields,
-    };
+      return {
+          type: "error",
+          message: "Invalid data submitted.",
+      };
   }
-
-  const { email, password, displayName, organizationName } = validatedFields.data;
   
+  const { displayName, organizationName, email, uid, idToken } = validatedFields.data;
+
   try {
-    // Pre-check: Does an organization with this name already exist? This must be done first.
+    // Verify the ID token to ensure the request is from an authenticated user
+    await adminAuth.verifyIdToken(idToken);
+    
+    // Pre-check: Does an organization with this name already exist?
     const orgsRef = adminDb.collection("organizations");
     const orgQuery = orgsRef.where("name", "==", organizationName);
     const orgSnapshot = await orgQuery.get();
@@ -81,88 +61,56 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
           type: "error", 
           message: `An organization named "${organizationName}" already exists.`,
           errors: { organizationName: [`An organization named "${organizationName}" already exists.`] },
-          fields,
       };
     }
-
-    // Step 1: Create the user with the Admin SDK
-    const userRecord = await adminAuth.createUser({
-      email,
-      password,
-      displayName,
-    });
-
-    // Step 2: Create all Firestore documents in an atomic batch write
-    const batch = adminDb.batch();
     
+    // Create all Firestore documents in an atomic batch write
+    const batch = adminDb.batch();
     const orgRef = adminDb.collection("organizations").doc();
     const orgId = orgRef.id;
 
-    // 2a. Create the organization
     batch.set(orgRef, {
       name: organizationName,
-      ownerId: userRecord.uid,
+      ownerId: uid,
       createdAt: new Date(),
     });
 
-    // 2b. Create the user's profile within the organization
-    const userInOrgRef = adminDb.doc(`organizations/${orgId}/users/${userRecord.uid}`);
+    const userInOrgRef = adminDb.doc(`organizations/${orgId}/users/${uid}`);
     batch.set(userInOrgRef, {
       displayName: displayName,
       email: email,
-      photoURL: userRecord.photoURL || null,
+      photoURL: null,
       isAdmin: true, // First user is the admin
       createdAt: new Date(),
     });
     
-    // 2c. Create the user-to-organization mapping
-    const userOrgMappingRef = adminDb.doc(`user_org_mappings/${userRecord.uid}`);
+    const userOrgMappingRef = adminDb.doc(`user_org_mappings/${uid}`);
     batch.set(userOrgMappingRef, {
         organizationId: orgId,
     });
 
-    // 2d. Log consent
-    const consentRef = adminDb.doc(`consents/${userRecord.uid}`);
+    const consentRef = adminDb.doc(`consents/${uid}`);
     batch.set(consentRef, {
-      userId: userRecord.uid,
+      userId: uid,
       termsOfService: true,
       privacyPolicy: true,
       timestamp: new Date(),
     });
     
-    // Commit the batch
     await batch.commit();
 
-    // Step 3: Create a session cookie for the new user.
-    const idToken = await adminAuth.createCustomToken(userRecord.uid);
-    // We will now sign in on the client to get an ID token to create the session cookie.
-    // To keep this a single server action, we'll sign the user in with the client SDK
-    // on the server, get the ID token, and then create the session.
-    // This is a bit of a workaround but keeps the UX smooth.
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const finalIdToken = await userCredential.user.getIdToken();
-
+    // Create session cookie
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await adminAuth.createSessionCookie(finalIdToken, { expiresIn });
+    const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
     cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
 
-
   } catch (error: any) {
-    let errorMessage = "An unexpected error occurred during signup.";
-    const errors: SignUpState['errors'] = {};
-
-    if (error.code === 'auth/email-already-exists' || error.code === 'auth/email-already-in-use') {
-      errorMessage = "This email address is already in use. Please login instead.";
-      errors.email = [errorMessage];
-    } else {
-      console.error("Error in signUpWithOrganization: ", error);
-      errorMessage = error.message || errorMessage;
-      errors._form = [errorMessage];
-    }
-    return { type: 'error', message: errorMessage, errors, fields };
+    console.error("Error in createOrganizationForNewUser: ", error);
+    return { type: 'error', message: error.message || "An unexpected error occurred." };
   }
   
-  return redirect('/dashboard');
+  // This will be handled by client-side redirect now
+  return { type: 'success', message: 'Account created successfully!' };
 }
 
 
@@ -196,17 +144,10 @@ export async function signInWithEmail(prevState: SignInState, formData: FormData
     const { email, password } = validatedFields.data;
 
     try {
-        // This is a temporary, less secure method for a server action.
-        // A better flow involves the client signing in and POSTing the ID token.
-        // However, to make the form work as-is, we use the client SDK on the server.
-        // This is NOT recommended for production.
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        
         const idToken = await userCredential.user.getIdToken();
-        
         const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
         const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
-        
         cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
 
     } catch (error: any) {

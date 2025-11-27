@@ -72,7 +72,7 @@ export default function SignupPage() {
         const user = userCredential.user;
         const idToken = await user.getIdToken();
 
-        // Step 2: Call server action to create DB records
+        // Step 2: Call server action to create DB records and session cookie
         const orgFormData = new FormData();
         orgFormData.append('uid', user.uid);
         orgFormData.append('idToken', idToken);

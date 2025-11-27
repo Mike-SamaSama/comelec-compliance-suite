@@ -31,6 +31,12 @@ export default function SignupPage() {
   const router = useRouter();
   const [state, formAction] = useActionState(signUpWithOrganization, initialState);
 
+  useEffect(() => {
+    if (state.type === 'success') {
+      router.push('/dashboard');
+    }
+  }, [state.type, router]);
+  
   const emailInUse = state?.errors?.email?.[0].includes('already in use');
 
   return (

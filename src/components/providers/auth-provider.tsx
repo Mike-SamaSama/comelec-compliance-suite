@@ -3,7 +3,7 @@
 
 import { createContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/client';
 import type { AuthContextType, UserProfile } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -71,11 +71,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setLoading(true);
       if (firebaseUser) {
         setUser(firebaseUser);
-        const userProfile = await getUserProfile(firebaseUser.uid);
-        setProfile(userProfile);
+        try {
+          const userProfile = await getUserProfile(firebaseUser.uid);
+          if (userProfile) {
+            setProfile(userProfile);
+          } else {
+            // If profile doesn't exist, the user is in an invalid state.
+            // Sign them out to prevent being stuck.
+            await auth.signOut();
+            setProfile(null);
+            setUser(null);
+          }
+        } catch (error) {
+            console.error("Error fetching user profile:", error);
+            // Sign out on profile fetch error
+            await auth.signOut();
+            setProfile(null);
+            setUser(null);
+        }
       } else {
         setUser(null);
         setProfile(null);

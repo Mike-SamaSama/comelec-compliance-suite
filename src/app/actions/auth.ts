@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
-import { doc, writeBatch, serverTimestamp, collection } from "firebase/firestore";
+import { doc, writeBatch, serverTimestamp } from "firebase/firestore";
 import { app, db } from "@/lib/firebase/client"; // Use client for auth on server
 import { redirect } from "next/navigation";
 
@@ -64,7 +64,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
       type: "error",
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Please correct the errors below.",
-      fields: fields,
+      fields,
     };
   }
 
@@ -80,7 +80,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     const batch = writeBatch(db);
 
     // 1. Create the new organization
-    const orgRef = doc(collection(db, "organizations"));
+    const orgRef = doc(db, "organizations", crypto.randomUUID());
     const orgId = orgRef.id;
 
     batch.set(orgRef, {
@@ -132,11 +132,12 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
       type: "error", 
       message: errorMessage,
       errors: errors,
-      fields: fields,
+      fields,
     };
   }
   
-  redirect('/dashboard');
+  // A redirect in a server action MUST be returned, not just called.
+  return redirect('/dashboard');
 }
 
 
@@ -155,7 +156,7 @@ export type SignInState = {
   }
 }
 
-export async function signInWithEmail(prevState: SignInState | null, formData: FormData): Promise<SignInState> {
+export async function signInWithEmail(prevState: SignInState, formData: FormData): Promise<SignInState> {
     const validatedFields = SignInSchema.safeParse(Object.fromEntries(formData.entries()));
 
     if (!validatedFields.success) {
@@ -181,5 +182,5 @@ export async function signInWithEmail(prevState: SignInState | null, formData: F
         return { type: "error", message: errorMessage, errors: {_form: [errorMessage]} };
     }
 
-    redirect('/dashboard');
+    return redirect('/dashboard');
 }

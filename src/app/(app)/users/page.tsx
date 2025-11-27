@@ -1,32 +1,40 @@
 
 "use client";
 
+import { useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useCollection } from "@/hooks/use-collection";
+import { collection, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
+import type { OrgUser } from "@/lib/types";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Users, ShieldAlert } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-// Note: This component is now using placeholder data.
-// A dedicated hook (e.g., useCollection) should be implemented to fetch data efficiently.
-
-interface OrgUser {
-    id: string;
-    displayName: string;
-    email: string;
-    isAdmin: boolean;
-    createdAt: Date;
+function getInitials(name: string | null | undefined) {
+    if (!name) return "U";
+    const parts = name.split(" ");
+    if (parts.length > 1) {
+      return (parts[0][0] + (parts[parts.length - 1][0] || "")).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
 }
 
+
 export default function UsersPage() {
-  const { isTenantAdmin } = useAuth();
+  const { profile, isTenantAdmin } = useAuth();
   
-  // This state is for demonstration purposes. In a real app,
-  // this data would be fetched via a custom hook.
-  const loading = true;
-  const users: OrgUser[] = [];
+  const usersQuery = useMemo(() => {
+    if (!profile?.organizationId) return null;
+    return query(collection(db, `organizations/${profile.organizationId}/users`));
+  }, [profile?.organizationId]);
+
+  const { data: users, loading } = useCollection<OrgUser>(usersQuery);
 
   if (!isTenantAdmin) {
     return (
@@ -75,21 +83,29 @@ export default function UsersPage() {
                     {loading ? (
                         Array.from({ length: 3 }).map((_, i) => (
                             <TableRow key={i}>
-                                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                                <TableCell><div className="flex items-center gap-3"><Skeleton className="h-10 w-10 rounded-full" /><Skeleton className="h-5 w-32" /></div></TableCell>
                                 <TableCell><Skeleton className="h-5 w-40" /></TableCell>
-                                <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                                <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                                 <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                 <TableCell className="text-right"><Skeleton className="h-8 w-8 inline-block" /></TableCell>
                             </TableRow>
                         ))
-                    ) : users.map(user => (
+                    ) : users?.map(user => (
                         <TableRow key={user.id}>
-                            <TableCell className="font-medium">{user.displayName}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-3">
+                                <Avatar>
+                                  <AvatarImage src={user.photoURL || undefined} />
+                                  <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
+                                </Avatar>
+                                <span>{user.displayName}</span>
+                              </div>
+                            </TableCell>
                             <TableCell>{user.email}</TableCell>
                             <TableCell>
                                 {user.isAdmin ? <Badge variant="secondary">Admin</Badge> : <Badge variant="outline">Member</Badge>}
                             </TableCell>
-                            <TableCell>{user.createdAt?.toLocaleDateString()}</TableCell>
+                            <TableCell>{user.createdAt?.toDate().toLocaleDateString()}</TableCell>
                             <TableCell className="text-right">
                                <Button variant="ghost" size="icon">...</Button>
                             </TableCell>
@@ -97,7 +113,7 @@ export default function UsersPage() {
                     ))}
                 </TableBody>
             </Table>
-             {(!loading && users.length === 0) && (
+             {(!loading && (!users || users.length === 0)) && (
                 <div className="text-center py-12 border-2 border-dashed rounded-lg mt-4">
                     <Users className="mx-auto h-12 w-12 text-muted-foreground" />
                     <h3 className="mt-2 text-sm font-semibold text-gray-900">No Users Found</h3>
@@ -111,5 +127,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    

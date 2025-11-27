@@ -1,4 +1,5 @@
-import type { User as FirebaseUser } from 'firebase/auth';
+import type { User as FirebaseUser, IdTokenResult } from 'firebase/auth';
+import { Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'platformAdmin' | 'tenantAdmin' | 'tenantMember';
 
@@ -16,7 +17,16 @@ export interface UserProfile {
 export interface Organization {
   id: string;
   name: string;
-  createdAt: Date;
+  createdAt: Timestamp;
+}
+
+export interface OrgUser {
+  id: string;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  isAdmin: boolean;
+  createdAt: Timestamp;
 }
 
 export interface AuthContextType {

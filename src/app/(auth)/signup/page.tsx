@@ -1,33 +1,32 @@
-"use client";
+'use client';
 
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { signUpWithOrganization, type SignUpState } from "@/app/actions/auth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, UserPlus } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { signUpWithOrganization, type SignUpState } from '@/app/actions/auth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle, UserPlus } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? "Creating Account..." : <> <UserPlus className="mr-2 h-4 w-4" /> Create Account </>}
+      {pending ? 'Creating Account...' : <><UserPlus className="mr-2 h-4 w-4" /> Create Account</>}
     </Button>
   );
 }
 
 const initialState: SignUpState = {
   type: null,
-  message: "",
+  message: '',
 };
-
 
 export default function SignupPage() {
   const router = useRouter();
@@ -35,14 +34,14 @@ export default function SignupPage() {
   const [state, formAction] = useActionState(signUpWithOrganization, initialState);
 
   useEffect(() => {
-    if (state?.type === "success") {
+    if (state?.type === 'success') {
       toast({
-        title: "Account Created",
+        title: 'Account Created',
         description: state.message,
       });
-       // The middleware will handle redirection after cookie is set.
-       // A small delay might be needed for cookie to be set on client.
-      setTimeout(() => router.push("/dashboard"), 500);
+      // The middleware will handle redirection after cookie is set.
+      // A small delay might be needed for cookie to be set on client.
+      setTimeout(() => router.push('/dashboard'), 500);
     }
   }, [state, router, toast]);
 
@@ -50,11 +49,13 @@ export default function SignupPage() {
     <div className="space-y-6">
       <div className="text-center">
         <h1 className="text-2xl font-bold font-headline">Create an Account</h1>
-        <p className="text-muted-foreground">Register your organization to get started.</p>
+        <p className="text-muted-foreground">
+          Register your organization to get started.
+        </p>
       </div>
 
       <form action={formAction} className="space-y-4">
-        {state?.type === "error" && state.message && (
+        {state?.type === 'error' && state.message && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Signup Failed</AlertTitle>
@@ -92,12 +93,12 @@ export default function SignupPage() {
             </p>
           </div>
         </div>
-         {state?.errors?.consent && <p className="text-sm font-medium text-destructive">{state.errors.consent[0]}</p>}
+        {state?.errors?.consent && <p className="text-sm font-medium text-destructive">{state.errors.consent[0]}</p>}
 
         <SubmitButton />
       </form>
       <p className="px-8 text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
+        Already have an account?{' '}
         <Link href="/login" className="underline underline-offset-4 hover:text-primary">
           Login
         </Link>

@@ -46,8 +46,11 @@ export type SignUpState = {
 
 export async function signUpWithOrganization(prevState: SignUpState, formData: FormData): Promise<SignUpState> {
   const validatedFields = SignUpSchema.safeParse(Object.fromEntries(formData.entries()));
+  
+  // Keep fields for repopulating form
   const fields = Object.fromEntries(formData.entries());
-  delete fields.password;
+  delete (fields as any).password;
+
 
   if (!validatedFields.success) {
     return {
@@ -104,7 +107,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     return { type: "success", message: "Account created successfully! Redirecting..." };
   } catch (error: any) {
     let errorMessage = "An unexpected error occurred during signup.";
-    const fieldErrors: { [key: string]: string[] } = {};
+    const fieldErrors: SignUpState['errors'] = {};
 
     if (error.code === "auth/email-already-in-use") {
         errorMessage = "This email address is already in use by another account.";

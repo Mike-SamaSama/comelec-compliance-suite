@@ -123,7 +123,7 @@ export function UserActions({ targetUser, organizationId, isCurrentUser }: UserA
            <DropdownMenuItem 
               className="text-destructive focus:bg-destructive/10 focus:text-destructive" 
               disabled={isPending}
-              onSelect={() => setIsAlertOpen(true)}
+              onSelect={(e) => { e.preventDefault(); setIsAlertOpen(true); }}
             >
                 <Trash2 className="mr-2 h-4 w-4" />
                 <span>Remove User</span>

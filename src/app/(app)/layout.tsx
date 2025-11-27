@@ -3,36 +3,36 @@
 
 import { useAuth } from "@/hooks/use-auth";
 import AppShell from "@/components/layout/app-shell";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
+  // This effect is the primary guard for all authenticated routes.
+  // It waits until the auth state is fully resolved (loading is false).
+  // If, after loading, there is still no user, it redirects to the login page.
   useEffect(() => {
-    // This effect now only handles redirecting away from login if a user is already logged in,
-    // which is not its primary responsibility but can be a safeguard.
-    // The main protection for routes is handled by the logic below.
-    if (!loading && !user && pathname !== '/login') {
-       router.push('/login');
+    if (!loading && !user) {
+      router.push('/login');
     }
-  }, [user, loading, router, pathname]);
+  }, [user, loading, router]);
   
-  // The AuthProvider shows a global loading skeleton. 
-  // We wait for loading to be false before rendering anything.
+  // The AuthProvider shows a global loading skeleton.
+  // While loading is true, we render nothing here to avoid flashing content
+  // and to let the AuthProvider's loading UI be the single source of truth.
   if (loading) {
     return null;
   }
 
-  // If loading is complete but there is no user, it means they need to log in.
-  // The useEffect above will handle the redirect. Returning null here prevents
-  // the app shell from flashing for unauthenticated users.
+  // If loading is complete but there is no user, it means the useEffect above
+  // will be triggered to redirect. Returning null here prevents the app shell
+  // from briefly flashing on the screen for unauthenticated users.
   if (!user) {
     return null;
   }
 
-  // If loading is complete and we have a user, render the application shell.
+  // If loading is complete and a user exists, render the protected app shell.
   return <AppShell>{children}</AppShell>;
 }

@@ -21,7 +21,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 import type { OrgUser } from "@/lib/types";
@@ -44,9 +43,12 @@ export function UserActions({ targetUser, organizationId, isCurrentUser }: UserA
   const { toast } = useToast();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [isRolePending, startRoleTransition] = useTransition();
+  const [isRemovePending, startRemoveTransition] = useTransition();
 
   const [removeState, removeAction] = useActionState(removeUserFromOrg, initialRemoveState);
+
+  const isPending = isRolePending || isRemovePending;
 
   useEffect(() => {
     if (removeState.type) {
@@ -64,7 +66,7 @@ export function UserActions({ targetUser, organizationId, isCurrentUser }: UserA
 
 
   const handleUpdateRole = (isAdmin: boolean) => {
-    startTransition(async () => {
+    startRoleTransition(async () => {
         const formData = new FormData();
         formData.append("organizationId", organizationId);
         formData.append("targetUserId", targetUser.id);
@@ -83,6 +85,12 @@ export function UserActions({ targetUser, organizationId, isCurrentUser }: UserA
         }
     });
   };
+
+  const handleRemoveSubmit = (formData: FormData) => {
+    startRemoveTransition(() => {
+        removeAction(formData);
+    })
+  }
   
   if (isCurrentUser) {
     return null; // Don't show menu for the current user
@@ -101,28 +109,30 @@ export function UserActions({ targetUser, organizationId, isCurrentUser }: UserA
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {targetUser.isAdmin ? (
-            <DropdownMenuItem disabled={isPending} onClick={() => handleUpdateRole(false)}>
+            <DropdownMenuItem disabled={isPending} onSelect={() => handleUpdateRole(false)}>
               <User className="mr-2 h-4 w-4" />
               <span>Make Member</span>
             </DropdownMenuItem>
           ) : (
-            <DropdownMenuItem disabled={isPending} onClick={() => handleUpdateRole(true)}>
+            <DropdownMenuItem disabled={isPending} onSelect={() => handleUpdateRole(true)}>
               <Shield className="mr-2 h-4 w-4" />
               <span>Make Admin</span>
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
-          <AlertDialogTrigger asChild>
-            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" disabled={isPending}>
+           <DropdownMenuItem 
+              className="text-destructive focus:bg-destructive/10 focus:text-destructive" 
+              disabled={isPending}
+              onSelect={() => setIsAlertOpen(true)}
+            >
                 <Trash2 className="mr-2 h-4 w-4" />
                 <span>Remove User</span>
             </DropdownMenuItem>
-          </AlertDialogTrigger>
         </DropdownMenuContent>
       </DropdownMenu>
 
       <AlertDialogContent>
-        <form action={removeAction}>
+        <form action={handleRemoveSubmit}>
             <input type="hidden" name="organizationId" value={organizationId} />
             <input type="hidden" name="targetUserId" value={targetUser.id} />
             <AlertDialogHeader>
@@ -133,7 +143,8 @@ export function UserActions({ targetUser, organizationId, isCurrentUser }: UserA
             </AlertDialogHeader>
             <AlertDialogFooter className="mt-4">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button type="submit" variant="destructive">
+            <Button type="submit" variant="destructive" disabled={isRemovePending}>
+                {isRemovePending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Yes, remove user
             </Button>
             </AlertDialogFooter>

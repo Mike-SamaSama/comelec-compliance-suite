@@ -28,7 +28,7 @@ function getInitials(name: string | null | undefined) {
 
 
 export default function UsersPage() {
-  const { profile, user: currentUser } = useAuth();
+  const { profile, user: currentUser, isTenantAdmin } = useAuth();
   
   // Construct a stable path string. The hook will only re-run when this path changes.
   const usersPath = profile ? `organizations/${profile.organizationId}/users` : null;
@@ -48,7 +48,7 @@ export default function UsersPage() {
             <CardHeader>
                 <Skeleton className="h-6 w-48" />
                 <Skeleton className="h-5 w-64" />
-            </CardHeader>
+            </Header>
             <CardContent>
               <Skeleton className="h-40 w-full" />
             </CardContent>
@@ -57,7 +57,7 @@ export default function UsersPage() {
     )
   }
 
-  if (!profile.isTenantAdmin) {
+  if (!isTenantAdmin) {
     return (
        <Card className="max-w-lg mx-auto mt-10">
         <CardHeader className="text-center">

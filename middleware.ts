@@ -12,14 +12,16 @@ export async function middleware(request: NextRequest) {
   // 1. If there's no session cookie and the user is trying to access a protected page,
   //    redirect them to the login page.
   if (!session && request.nextUrl.pathname.startsWith('/app')) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   // 2. If there is a session cookie, try to verify it.
   if (session) {
     try {
-      // Verify the session cookie.
-      await adminAuth.verifySessionCookie(session, true);
+      // Verify the session cookie. `checkRevoked` is false for performance.
+      await adminAuth.verifySessionCookie(session, false);
       
       // If the user is authenticated and tries to access login/signup, redirect to dashboard.
       if (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup')) {
@@ -27,7 +29,8 @@ export async function middleware(request: NextRequest) {
       }
 
     } catch (error) {
-      // Session cookie is invalid. Delete it and redirect to login.
+      // Session cookie is invalid. Clear it and redirect to login.
+      // This handles expired cookies, revoked sessions, etc.
       console.error('Error in middleware (session invalid):', error);
       const response = NextResponse.redirect(new URL('/login', request.url));
       response.cookies.delete('session');

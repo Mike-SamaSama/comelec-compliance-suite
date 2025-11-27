@@ -5,12 +5,10 @@ import { z } from "zod";
 import { cookies } from 'next/headers';
 import {
   getAuth,
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile,
 } from "firebase/auth";
-import { doc, writeBatch, serverTimestamp, collection, getDocs, query, where, limit, runTransaction, getDoc, setDoc } from "firebase/firestore";
-import { app, db } from "@/lib/firebase/client"; 
+import { doc, serverTimestamp, collection, getDocs, query, where, limit, addDoc } from "firebase/firestore";
+import { app } from "@/lib/firebase/client"; 
 import { adminAuth, adminDb, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
 
@@ -72,9 +70,27 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
 
   const { email, password, displayName, organizationName } = validatedFields.data;
   
+  // Pre-check: Does an organization with this name already exist?
+  try {
+    const orgsRef = collection(adminDb, "organizations");
+    const orgQuery = query(orgsRef, where("name", "==", organizationName), limit(1));
+    const orgSnapshot = await getDocs(orgQuery);
+    if (!orgSnapshot.empty) {
+      return { 
+          type: "error", 
+          message: `An organization named "${organizationName}" already exists.`,
+          errors: { organizationName: [`An organization named "${organizationName}" already exists.`] },
+          fields,
+      };
+    }
+  } catch (error: any) {
+    console.error("Error checking for existing organization:", error);
+    return { type: "error", message: "A server error occurred. Please try again later.", fields };
+  }
+
   let userRecord;
   try {
-     // Use Admin SDK to create user. This is more robust on the server.
+     // Use Admin SDK to create user.
     userRecord = await adminAuth.createUser({
       email,
       password,
@@ -94,54 +110,49 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
   }
 
   try {
-    // Use a transaction to ensure atomicity
-    await runTransaction(adminDb, async (transaction) => {
-      const orgsRef = collection(adminDb, "organizations");
-      const orgQuery = query(orgsRef, where("name", "==", organizationName), limit(1));
-      const orgQuerySnapshot = await transaction.get(orgQuery);
+    // Use a batch write to ensure atomicity for document creation
+    const batch = adminDb.batch();
+    
+    const orgRef = doc(collection(adminDb, "organizations"));
+    const orgId = orgRef.id;
 
-      if (!orgQuerySnapshot.empty) {
-        throw new Error(`An organization named "${organizationName}" already exists.`);
-      }
-
-      const orgRef = doc(collection(adminDb, "organizations"));
-      const orgId = orgRef.id;
-
-      // 1. Create the organization
-      transaction.set(orgRef, {
-        name: organizationName,
-        ownerId: userRecord.uid,
-        createdAt: serverTimestamp(),
-      });
-
-      // 2. Create the user's profile within the organization
-      const userInOrgRef = doc(adminDb, "organizations", orgId, "users", userRecord.uid);
-      transaction.set(userInOrgRef, {
-        displayName: displayName,
-        email: email,
-        photoURL: userRecord.photoURL || null,
-        isAdmin: true, // First user is the admin
-        createdAt: serverTimestamp(),
-      });
-      
-      // 3. Create the user-to-organization mapping for quick lookups
-      const userOrgMappingRef = doc(adminDb, 'user_org_mappings', userRecord.uid);
-      transaction.set(userOrgMappingRef, {
-          organizationId: orgId,
-      });
-
-      // 4. Log consent
-      const consentRef = doc(adminDb, "consents", userRecord.uid);
-      transaction.set(consentRef, {
-        userId: userRecord.uid,
-        termsOfService: true,
-        privacyPolicy: true,
-        timestamp: serverTimestamp(),
-      });
+    // 1. Create the organization
+    batch.set(orgRef, {
+      name: organizationName,
+      ownerId: userRecord.uid,
+      createdAt: serverTimestamp(),
     });
 
+    // 2. Create the user's profile within the organization
+    const userInOrgRef = doc(adminDb, "organizations", orgId, "users", userRecord.uid);
+    batch.set(userInOrgRef, {
+      displayName: displayName,
+      email: email,
+      photoURL: userRecord.photoURL || null,
+      isAdmin: true, // First user is the admin
+      createdAt: serverTimestamp(),
+    });
+    
+    // 3. Create the user-to-organization mapping
+    const userOrgMappingRef = doc(adminDb, 'user_org_mappings', userRecord.uid);
+    batch.set(userOrgMappingRef, {
+        organizationId: orgId,
+    });
+
+    // 4. Log consent
+    const consentRef = doc(adminDb, "consents", userRecord.uid);
+    batch.set(consentRef, {
+      userId: userRecord.uid,
+      termsOfService: true,
+      privacyPolicy: true,
+      timestamp: serverTimestamp(),
+    });
+    
+    // Commit the batch
+    await batch.commit();
+
   } catch (error: any) {
-    // If the transaction fails, we must delete the user we just created.
+    // If the batch fails, we must delete the user we just created to allow them to retry.
     await adminAuth.deleteUser(userRecord.uid);
     
     return { 
@@ -152,10 +163,19 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     };
   }
   
-  // After server-side creation, sign the user in on the client to establish a session.
-  await signInWithEmailAndPassword(auth, email, password);
+  // After server-side creation, create a session cookie.
+  const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+  const sessionCookie = await adminAuth.createSessionCookie(await getAuth(app).currentUser!.getIdToken(), { expiresIn });
+  cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true });
 
-  // Redirect is handled by the login flow, which will create the session cookie.
+
+  // This part is tricky. The server action creates the user, but the client doesn't know about it yet.
+  // We will sign them in on the client to get an ID token, then create the session cookie.
+  await signInWithEmailAndPassword(auth, email, password);
+  const idToken = await auth.currentUser!.getIdToken();
+  const sessionCookie2 = await adminAuth.createSessionCookie(idToken, { expiresIn });
+  cookies().set("session", sessionCookie2, { maxAge: expiresIn, httpOnly: true, secure: true });
+
   return redirect('/dashboard');
 }
 
@@ -244,6 +264,7 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
 
   const { displayName, email, organizationId } = validatedFields.data;
   
+  // --- Authorization ---
   let callingUserId: string;
   try {
     const sessionCookie = cookies().get('session')?.value;
@@ -263,6 +284,7 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
     return { type: "error", message: "Access Denied: You do not have permission to invite users to this organization." };
   }
   
+  // --- Logic ---
   try {
     const usersInOrgRef = collection(adminDb, "organizations", organizationId, "users");
     const userSearchQuery = query(
@@ -288,9 +310,6 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
       photoURL: null,
       isAdmin: false, // Invited users are members by default
       createdAt: serverTimestamp(),
-      // We don't have a UID yet, so that will be added when they sign up.
-      // A cloud function could listen for new user creation and link them.
-      // For now, the signup logic will handle finding this pre-provisioned doc.
     });
 
   } catch (error: any) {

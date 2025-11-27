@@ -10,9 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper function to simulate fetching user profile data from Firestore
 async function getUserProfile(uid: string): Promise<UserProfile | null> {
-    // 1. Check if user is a platform admin
     const platformAdminRef = doc(db, 'platform_admins', uid);
     const platformAdminSnap = await getDoc(platformAdminRef);
     if (platformAdminSnap.exists()) {
@@ -28,27 +26,24 @@ async function getUserProfile(uid: string): Promise<UserProfile | null> {
         };
     }
 
-    // 2. If not, get their organization mapping from a root-level users collection
     const userOrgMappingRef = doc(db, 'user_org_mappings', uid);
     const userOrgMappingSnap = await getDoc(userOrgMappingRef);
     const organizationId = userOrgMappingSnap.data()?.organizationId;
 
     if (!organizationId) {
         console.warn(`No organization mapping found for user ${uid}`);
-        return null; // Or a default state
+        return null;
     }
 
-    // 3. Get the user's details and role from within their organization's subcollection
-    const tenantUserRef = doc(db, 'organizations', organizationId, 'users', uid);
-    const tenantUserSnap = await getDoc(tenantUserRef);
+    const [tenantUserSnap, orgSnap] = await Promise.all([
+        getDoc(doc(db, 'organizations', organizationId, 'users', uid)),
+        getDoc(doc(db, 'organizations', organizationId))
+    ]);
 
     if (!tenantUserSnap.exists()) {
         console.warn(`User document not found in tenant ${organizationId} for user ${uid}`);
         return null;
     }
-
-    const orgRef = doc(db, 'organizations', organizationId);
-    const orgSnap = await getDoc(orgRef);
 
     const userData = tenantUserSnap.data();
     const isAdmin = userData.isAdmin || false;
@@ -65,7 +60,6 @@ async function getUserProfile(uid: string): Promise<UserProfile | null> {
     };
 }
 
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -73,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setLoading(true);
       if (firebaseUser) {
         setUser(firebaseUser);
         const userProfile = await getUserProfile(firebaseUser.uid);

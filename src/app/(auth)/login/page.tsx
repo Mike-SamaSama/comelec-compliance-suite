@@ -4,7 +4,7 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { AlertCircle, LogIn } from "lucide-react";
+import { AlertCircle, ArrowRight } from "lucide-react";
 import { signInWithEmail, type SignInState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? "Signing In..." : <> <LogIn className="mr-2 h-4 w-4" /> Sign In </>}
+      {pending ? "Signing In..." : <> <ArrowRight className="mr-2 h-4 w-4" /> Sign In </>}
     </Button>
   );
 }
@@ -56,7 +56,7 @@ export default function LoginPage() {
         <SubmitButton />
       </form>
 
-      <p className="px-8 text-center text-sm text-muted-foreground">
+      <p className="text-right text-sm text-muted-foreground">
         Don't have an account?{" "}
         <Link href="/signup" className="underline underline-offset-4 hover:text-primary">
           Sign Up

@@ -19,7 +19,7 @@ const emailSchema = z.string().email({ message: "Invalid email address." });
 const passwordSchema = z.string().min(8, { message: "Password must be at least 8 characters long." });
 
 const SignUpSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  displayName: z.string().min(2, { message: "Name must be at least 2 characters." }),
   organizationName: z.string().min(2, { message: "Organization name must be at least 2 characters." }),
   email: emailSchema,
   password: passwordSchema,
@@ -32,7 +32,7 @@ export type SignUpState = {
   type: "error" | "success" | null;
   message: string;
   errors?: {
-    name?: string[];
+    displayName?: string[];
     organizationName?: string[];
     email?: string[];
     password?: string[];
@@ -40,7 +40,7 @@ export type SignUpState = {
     _form?: string[];
   };
   fields?: {
-    name: string;
+    displayName: string;
     organizationName: string;
     email: string;
     consent: string;
@@ -52,7 +52,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
   const validatedFields = SignUpSchema.safeParse(Object.fromEntries(formData.entries()));
   
   const fields = {
-    name: formData.get('name') as string,
+    displayName: formData.get('displayName') as string,
     organizationName: formData.get('organizationName') as string,
     email: formData.get('email') as string,
     consent: formData.get('consent') as string,
@@ -68,19 +68,18 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     };
   }
 
-  const { email, password, name, organizationName } = validatedFields.data;
+  const { email, password, displayName, organizationName } = validatedFields.data;
 
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
     // We also update the auth user's profile
-    await updateProfile(user, { displayName: name });
+    await updateProfile(user, { displayName: displayName });
 
     const batch = writeBatch(db);
 
     // 1. Create the new organization
-    // Generate a new document reference to get a unique ID
     const orgRef = doc(collection(db, "organizations"));
     const orgId = orgRef.id;
 
@@ -93,7 +92,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     // 2. Create the user's profile within the organization subcollection
     const userInOrgRef = doc(db, "organizations", orgId, "users", user.uid);
     batch.set(userInOrgRef, {
-      displayName: name,
+      displayName: displayName,
       email: user.email,
       photoURL: user.photoURL,
       isAdmin: true, // First user is the admin

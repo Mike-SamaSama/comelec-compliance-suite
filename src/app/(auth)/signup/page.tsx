@@ -56,9 +56,9 @@ export default function SignupPage() {
           {state?.errors?.organizationName && <p className="text-sm font-medium text-destructive">{state.errors.organizationName[0]}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="name">Your Full Name</Label>
-          <Input id="name" name="name" placeholder="Juan Dela Cruz" required defaultValue={state?.fields?.name} />
-          {state?.errors?.name && <p className="text-sm font-medium text-destructive">{state.errors.name[0]}</p>}
+          <Label htmlFor="displayName">Your Full Name</Label>
+          <Input id="displayName" name="displayName" placeholder="Juan Dela Cruz" required defaultValue={state?.fields?.displayName} />
+          {state?.errors?.displayName && <p className="text-sm font-medium text-destructive">{state.errors.displayName[0]}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>

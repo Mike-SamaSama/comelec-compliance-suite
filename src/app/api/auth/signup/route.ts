@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       path: '/',
     };
     
-    const response = new NextResponse(JSON.stringify({ status: 'success' }), {
+    const response = new NextResponse(JSON.stringify({ status: 'success', organizationId: orgId }), {
       status: 200,
     });
     response.cookies.set(options);
@@ -81,9 +81,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error("Error in signup API route: ", error);
-     if (error.message.includes('fetch a valid Google OAuth2 access token')) {
+     if (error.code && error.code.includes('auth/')) {
         return new NextResponse(
-            JSON.stringify({ error: "Server authentication error. Could not create user session. Please contact support." }),
+            JSON.stringify({ error: "Firebase authentication failed on the server. Please check server logs." }),
             { status: 500 }
         );
     }

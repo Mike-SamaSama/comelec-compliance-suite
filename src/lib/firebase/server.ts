@@ -4,10 +4,8 @@ import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 // This is a server-only file.
-
-// Initialize the Firebase Admin SDK.
-// This is the most robust way for a managed environment like App Hosting.
-// It initializes only once when the server module is first loaded.
+// IMPORTANT: This initialization logic relies on Application Default Credentials.
+// It should not be modified unless you are an expert in Firebase server-side authentication.
 const adminApp: App = getApps().length
   ? getApps()[0]!
   : initializeApp();

@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error creating session cookie:', error);
     // Handle the specific server authentication error gracefully
-     if (error.message.includes('fetch a valid Google OAuth2 access token')) {
+     if (error.code && error.code.includes('auth/')) {
         return new NextResponse(
-            JSON.stringify({ error: "Server authentication error. Could not create user session. Please contact support." }),
+            JSON.stringify({ error: "Server authentication error. Could not create user session. Please check server logs." }),
             { status: 500 }
         );
     }

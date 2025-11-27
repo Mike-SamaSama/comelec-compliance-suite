@@ -69,6 +69,7 @@ export default function LoginPage() {
             if (response.ok) {
                 // On success, the cookie is set. Navigate to the dashboard.
                 router.push('/dashboard');
+                router.refresh(); // Refresh the page to ensure server components re-render with new auth state
             } else {
                  const errorData = await response.json();
                  setFormState({ message: errorData.error || "Failed to create a session. Please try again." });

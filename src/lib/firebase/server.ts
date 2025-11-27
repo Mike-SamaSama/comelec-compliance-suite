@@ -32,14 +32,17 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
   }
 
   const existingApp = getApps().find((app) => app.name === 'admin');
-  adminApp =
-    existingApp ||
-    initializeApp(
+  
+  if (existingApp) {
+    adminApp = existingApp;
+  } else {
+    adminApp = initializeApp(
       {
         credential: cert(serviceAccount),
       },
       'admin'
     );
+  }
 
   adminAuth = getAuth(adminApp);
   adminDb = getFirestore(adminApp);

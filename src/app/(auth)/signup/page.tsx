@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useFormStatus } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -25,7 +25,7 @@ function SubmitButton() {
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [state, formAction] = useFormState(signUpWithOrganization, null);
+  const [state, formAction] = useActionState(signUpWithOrganization, null);
 
   useEffect(() => {
     if (state?.type === "success") {

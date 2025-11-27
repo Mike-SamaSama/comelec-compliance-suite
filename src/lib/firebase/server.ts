@@ -16,19 +16,23 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
     return { app: adminApp, auth: adminAuth, db: adminDb };
   }
 
+  // A robust way to handle the private key is to store it as a Base64 encoded string
+  // in environment variables to avoid newline issues.
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY_B64
+    ? Buffer.from(process.env.FIREBASE_PRIVATE_KEY_B64, 'base64').toString('utf8')
+    : (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+
+
   // Construct the service account object from individual environment variables.
-  // This is more robust than parsing a JSON string.
   const serviceAccount: ServiceAccount = {
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    // The private key needs to have its newlines properly escaped when stored in an env var.
-    privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+    privateKey: privateKey,
   };
 
   if (!serviceAccount.projectId || !serviceAccount.clientEmail || !serviceAccount.privateKey) {
-      throw new Error('Firebase service account environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY) are not set or are empty.');
+      throw new Error('Firebase service account environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and either FIREBASE_PRIVATE_KEY or FIREBASE_PRIVATE_KEY_B64) are not set or are empty.');
   }
-
 
   const existingApp = getApps().find((app) => app.name === 'admin');
   

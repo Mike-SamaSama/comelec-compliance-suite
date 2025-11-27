@@ -2,21 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminAuth } from '@/lib/firebase/server';
 
-export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     *
-     * We are NOT excluding /api/ here because we want the middleware to run
-     * for most API routes, except for specific public ones handled above.
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
-};
-
+// This function can be marked `async` if using `await` inside
 export async function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('session')?.value;
   const requestHeaders = new Headers(request.headers);
@@ -71,3 +57,19 @@ export async function middleware(request: NextRequest) {
     },
   });
 }
+
+// See "Matching Paths" below to learn more
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     *
+     * We are NOT excluding /api/ here because we want the middleware to run
+     * for most API routes, except for specific public ones handled above.
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
+};

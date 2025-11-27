@@ -1,8 +1,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { User, getAuth, signInWithCustomToken } from 'firebase/auth';
-import { app } from './lib/firebase/client';
-import { adminAuth } from './lib/firebase/server';
+import { app } from './src/lib/firebase/client';
+import { adminAuth } from './src/lib/firebase/server';
 
 // This function is crucial for passing the user's identity to Server Actions.
 async function addAuthHeader(request: NextRequest, user: User) {

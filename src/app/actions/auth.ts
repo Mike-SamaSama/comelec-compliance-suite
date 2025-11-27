@@ -48,23 +48,6 @@ export type SignUpState = {
 
 
 export async function signUpWithOrganization(prevState: SignUpState, formData: FormData): Promise<SignUpState> {
-  
-  // NOTE: This function is temporarily disabled to prevent server crashes due to Admin SDK initialization issues.
-  // It will be restored in a later phase.
-  
-  return {
-    type: "error",
-    message: "Sign-up is temporarily disabled. Please try again later.",
-    fields: {
-      displayName: formData.get('displayName') as string,
-      organizationName: formData.get('organizationName') as string,
-      email: formData.get('email') as string,
-      consent: formData.get('consent') as string,
-    }
-  }
-
-
-  /*
   const { auth: adminAuth, db: adminDb } = getAdminApp();
 
   const validatedFields = SignUpSchema.safeParse(Object.fromEntries(formData.entries()));
@@ -150,13 +133,17 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     // Commit the batch
     await batch.commit();
 
-    // Step 3: Create a session cookie for the new user and log them in.
+    // Step 3: Create a session cookie for the new user.
+    const idToken = await adminAuth.createCustomToken(userRecord.uid);
+    // We will now sign in on the client to get an ID token to create the session cookie.
+    // To keep this a single server action, we'll sign the user in with the client SDK
+    // on the server, get the ID token, and then create the session.
+    // This is a bit of a workaround but keeps the UX smooth.
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const finalIdToken = await userCredential.user.getIdToken();
+
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    // The ID token is not available on the server during creation, so we create a custom token
-    // and sign the user in on the client, then the client sends the ID token to create a session.
-    // For simplicity here, we'll create the session cookie directly, assuming the server
-    // has the authority to mint sessions for newly created users.
-    const sessionCookie = await adminAuth.createSessionCookie(userRecord.uid, { expiresIn });
+    const sessionCookie = await adminAuth.createSessionCookie(finalIdToken, { expiresIn });
     cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
 
 
@@ -176,7 +163,6 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
   }
   
   return redirect('/dashboard');
-  */
 }
 
 

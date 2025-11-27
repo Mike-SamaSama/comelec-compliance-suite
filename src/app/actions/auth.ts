@@ -73,8 +73,8 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
 
     const batch = writeBatch(db);
 
-    // 1. Create the new organization
-    const orgRef = doc(db, "organizations", user.uid); // Using user.uid as org id for simplicity
+    // 1. Create the new organization (using user.uid as org id for simplicity)
+    const orgRef = doc(db, "organizations", user.uid); 
     batch.set(orgRef, {
       name: organizationName,
       ownerId: user.uid,
@@ -94,7 +94,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     // 3. Create a mapping in a root collection for easy organization lookup on login
     const userOrgMappingRef = doc(db, 'user_org_mappings', user.uid);
     batch.set(userOrgMappingRef, {
-        organizationId: user.uid, // The new org ID
+        organizationId: user.uid, // The new org ID is the user's UID
     });
 
     // 4. Log consent
@@ -117,6 +117,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
         errors.email = ["This email address is already in use by another account."];
         errorMessage = "Please correct the errors below."
     } else {
+        errorMessage = error.message || errorMessage;
         errors._form = [errorMessage];
     }
     

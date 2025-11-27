@@ -24,7 +24,8 @@ service cloud.firestore {
     // This is more efficient as it uses a single get() instead of an exists() and a get().
     function isTenantAdminOf(organizationId) {
       let userDoc = get(/databases/$(database)/documents/organizations/$(organizationId)/users/$(request.auth.uid));
-      return userDoc.data.isAdmin == true;
+      // Best practice: Explicitly check for the field's existence before checking its value.
+      return 'isAdmin' in userDoc.data && userDoc.data.isAdmin == true;
     }
     
     // Is the user the owner of the document they are trying to access?

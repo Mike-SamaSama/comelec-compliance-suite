@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { AlertCircle, LogIn } from "lucide-react";
 import { signInWithEmail } from "@/app/actions/auth";
@@ -24,6 +25,7 @@ function SubmitButton() {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [state, formAction] = useActionState(signInWithEmail, null);
 
@@ -33,11 +35,10 @@ export default function LoginPage() {
         title: "Login Successful",
         description: state.message,
       });
-      // The middleware will handle redirection after cookie is set.
-      // A small delay might be needed for cookie to be set on client.
-      setTimeout(() => router.push("/dashboard"), 500);
+      const redirectUrl = searchParams.get('redirect') || '/dashboard';
+      router.push(redirectUrl);
     }
-  }, [state, router, toast]);
+  }, [state, router, toast, searchParams]);
 
   return (
     <div className="space-y-6">

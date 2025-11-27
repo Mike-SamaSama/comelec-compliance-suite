@@ -153,6 +153,17 @@ export async function signInWithEmail(prevState: any, formData: FormData) {
         await signInWithEmailAndPassword(auth, email, password);
         return { type: "success", message: "Signed in successfully. Redirecting..." };
     } catch (error: any) {
-        return { type: "error", message: "Invalid login credentials. Please try again." };
+        let errorMessage = "Invalid login credentials. Please try again.";
+        if (error.code === 'auth/invalid-credential') {
+          errorMessage = "Invalid email or password. Please try again."
+        } else if (error.code === 'auth/user-not-found') {
+          errorMessage = "No account found with this email address."
+        } else if (error.code === 'auth/wrong-password') {
+          errorMessage = "Incorrect password. Please try again."
+        } else {
+          errorMessage = error.message;
+        }
+
+        return { type: "error", message: errorMessage };
     }
 }

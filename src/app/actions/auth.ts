@@ -25,18 +25,36 @@ const SignUpSchema = z.object({
   }),
 });
 
-export async function signUpWithOrganization(prevState: any, formData: FormData) {
+export type SignUpState = {
+  type: "error" | "success" | null;
+  message: string;
+  errors?: {
+    name?: string[];
+    organizationName?: string[];
+    email?: string[];
+    password?: string[];
+    consent?: string[];
+  };
+  fields?: {
+    name?: string;
+    organizationName?: string;
+    email?: string;
+    consent?: string;
+  };
+};
+
+
+export async function signUpWithOrganization(prevState: SignUpState, formData: FormData): Promise<SignUpState> {
   const validatedFields = SignUpSchema.safeParse(Object.fromEntries(formData.entries()));
+  const fields = Object.fromEntries(formData.entries());
+  delete fields.password;
 
   if (!validatedFields.success) {
-    const fields = Object.fromEntries(formData.entries());
-    delete fields.password; // Always remove password for security
-    
     return {
-      type: "error" as const,
+      type: "error",
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Please correct the errors below.",
-      fields: fields,
+      fields: fields as SignUpState['fields'],
     };
   }
 
@@ -83,7 +101,7 @@ export async function signUpWithOrganization(prevState: any, formData: FormData)
 
     await batch.commit();
 
-    return { type: "success" as const, message: "Account created successfully! Redirecting..." };
+    return { type: "success", message: "Account created successfully! Redirecting..." };
   } catch (error: any) {
     let errorMessage = "An unexpected error occurred during signup.";
     const fieldErrors: { [key: string]: string[] } = {};
@@ -93,14 +111,11 @@ export async function signUpWithOrganization(prevState: any, formData: FormData)
         fieldErrors.email = [errorMessage];
     }
     
-    const fields = Object.fromEntries(formData.entries());
-    delete fields.password;
-    
     return { 
-      type: "error" as const, 
+      type: "error", 
       message: errorMessage,
       errors: fieldErrors,
-      fields: fields,
+      fields: fields as SignUpState['fields'],
     };
   }
 }

@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { signUpWithOrganization } from "@/app/actions/auth";
+import { signUpWithOrganization, type SignUpState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,10 +23,16 @@ function SubmitButton() {
   );
 }
 
+const initialState: SignUpState = {
+  type: null,
+  message: "",
+};
+
+
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [state, formAction] = useActionState(signUpWithOrganization, null);
+  const [state, formAction] = useActionState(signUpWithOrganization, initialState);
 
   useEffect(() => {
     if (state?.type === "success") {

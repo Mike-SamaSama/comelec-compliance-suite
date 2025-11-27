@@ -19,8 +19,8 @@ export function useCollection<T extends DocumentData>(
 
   useEffect(() => {
     if (!query) {
-      setLoading(false);
       setData([]);
+      setLoading(false);
       return;
     }
 

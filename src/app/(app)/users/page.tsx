@@ -4,8 +4,8 @@
 import { useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCollection } from "@/hooks/use-collection";
-import { collection, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { collection, query } from "firebase/firestore";
+import { db } from "@/lib/firebase/client"; // This is acceptable here for query creation
 import type { OrgUser } from "@/lib/types";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +31,7 @@ export default function UsersPage() {
   
   const usersQuery = useMemo(() => {
     if (!profile?.organizationId) return null;
+    // The query object is memoized, preventing the useCollection hook from re-running unnecessarily.
     return query(collection(db, `organizations/${profile.organizationId}/users`));
   }, [profile?.organizationId]);
 

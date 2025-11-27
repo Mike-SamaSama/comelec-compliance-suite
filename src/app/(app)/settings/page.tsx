@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,10 @@ import { ShieldAlert } from "lucide-react";
 
 export default function SettingsPage() {
     const { profile, isTenantAdmin } = useAuth();
+    
+    if (!profile) {
+        return null;
+    }
     
     if (!isTenantAdmin) {
     return (
@@ -40,7 +45,7 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
             <div className="space-y-2">
                 <Label htmlFor="orgName">Organization Name</Label>
-                <Input id="orgName" defaultValue={profile?.organizationName || ""} />
+                <Input id="orgName" defaultValue={profile.organizationName || ""} />
             </div>
              <Button>Save Changes</Button>
         </CardContent>

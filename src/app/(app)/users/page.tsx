@@ -1,14 +1,57 @@
+
 "use client";
+
+import { useEffect, useState } from "react";
+import { collection, query, onSnapshot, DocumentData } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
+import { useAuth } from "@/hooks/use-auth";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Users, ShieldAlert } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface OrgUser {
+    id: string;
+    displayName: string;
+    email: string;
+    isAdmin: boolean;
+    createdAt: Date;
+}
 
 export default function UsersPage() {
-  const { isTenantAdmin } = useAuth();
+  const { isTenantAdmin, profile } = useAuth();
+  const [users, setUsers] = useState<OrgUser[]>([]);
+  const [loading, setLoading] = useState(true);
+
+   useEffect(() => {
+    if (!profile?.organizationId) return;
+
+    const usersQuery = query(collection(db, "organizations", profile.organizationId, "users"));
+    
+    const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
+      const usersData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          displayName: data.displayName,
+          email: data.email,
+          isAdmin: data.isAdmin,
+          createdAt: data.createdAt?.toDate(),
+        } as OrgUser;
+      });
+      setUsers(usersData);
+      setLoading(false);
+    }, (error) => {
+        console.error("Error fetching users:", error);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [profile?.organizationId]);
+
 
   if (!isTenantAdmin) {
     return (
@@ -54,26 +97,40 @@ export default function UsersPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow>
-                        <TableCell className="font-medium">Juan Dela Cruz</TableCell>
-                        <TableCell>juan@example.com</TableCell>
-                        <TableCell><Badge variant="secondary">Admin</Badge></TableCell>
-                        <TableCell>2024-01-10</TableCell>
-                        <TableCell className="text-right">
-                           <Button variant="ghost" size="icon">...</Button>
-                        </TableCell>
-                    </TableRow>
-                     <TableRow>
-                        <TableCell className="font-medium">Maria Clara</TableCell>
-                        <TableCell>maria@example.com</TableCell>
-                        <TableCell><Badge variant="outline">Member</Badge></TableCell>
-                        <TableCell>2024-03-22</TableCell>
-                        <TableCell className="text-right">
-                           <Button variant="ghost" size="icon">...</Button>
-                        </TableCell>
-                    </TableRow>
+                    {loading ? (
+                        Array.from({ length: 3 }).map((_, i) => (
+                            <TableRow key={i}>
+                                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                                <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                                <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                                <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                            </TableRow>
+                        ))
+                    ) : users.map(user => (
+                        <TableRow key={user.id}>
+                            <TableCell className="font-medium">{user.displayName}</TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>
+                                {user.isAdmin ? <Badge variant="secondary">Admin</Badge> : <Badge variant="outline">Member</Badge>}
+                            </TableCell>
+                            <TableCell>{user.createdAt?.toLocaleDateString()}</TableCell>
+                            <TableCell className="text-right">
+                               <Button variant="ghost" size="icon">...</Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
                 </TableBody>
             </Table>
+             {(!loading && users.length === 0) && (
+                <div className="text-center py-12 border-2 border-dashed rounded-lg mt-4">
+                    <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-2 text-sm font-semibold text-gray-900">No Users Found</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                    Invite your first team member to get started.
+                    </p>
+                </div>
+            )}
         </CardContent>
       </Card>
     </div>

@@ -7,7 +7,7 @@ import { useEffect } from "react";
 import AppShell from "@/components/layout/app-shell";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, profile } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -25,8 +25,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  // If the user is authenticated, but the profile hasn't loaded yet,
-  // we can also opt to show a loading state. For now, we'll let the AppShell
-  // render with potentially partial data, which it should handle gracefully.
+  // If the user is authenticated, the AppShell will be rendered.
   return <AppShell>{children}</AppShell>;
 }

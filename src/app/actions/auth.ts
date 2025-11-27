@@ -7,7 +7,7 @@ import {
   getAuth,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-import { doc, serverTimestamp, collection, getDocs, query, where, limit, addDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
 import { app } from "@/lib/firebase/client"; 
 import { adminAuth, adminDb, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
@@ -73,7 +73,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
   try {
     // Pre-check: Does an organization with this name already exist? This must be done first.
     const orgsRef = collection(adminDb, "organizations");
-    const orgQuery = query(orgsRef, where("name", "==", organizationName), limit(1));
+    const orgQuery = query(orgsRef, where("name", "==", organizationName));
     const orgSnapshot = await getDocs(orgQuery);
     if (!orgSnapshot.empty) {
       return { 
@@ -94,58 +94,47 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     // Step 2: Create all Firestore documents in an atomic batch write
     const batch = adminDb.batch();
     
-    const orgRef = doc(collection(adminDb, "organizations"));
+    const orgRef = adminDb.collection("organizations").doc();
     const orgId = orgRef.id;
 
     // 2a. Create the organization
     batch.set(orgRef, {
       name: organizationName,
       ownerId: userRecord.uid,
-      createdAt: serverTimestamp(),
+      createdAt: new Date(),
     });
 
     // 2b. Create the user's profile within the organization
-    const userInOrgRef = doc(adminDb, "organizations", orgId, "users", userRecord.uid);
+    const userInOrgRef = adminDb.doc(`organizations/${orgId}/users/${userRecord.uid}`);
     batch.set(userInOrgRef, {
       displayName: displayName,
       email: email,
       photoURL: userRecord.photoURL || null,
       isAdmin: true, // First user is the admin
-      createdAt: serverTimestamp(),
+      createdAt: new Date(),
     });
     
     // 2c. Create the user-to-organization mapping
-    const userOrgMappingRef = doc(adminDb, 'user_org_mappings', userRecord.uid);
+    const userOrgMappingRef = adminDb.doc(`user_org_mappings/${userRecord.uid}`);
     batch.set(userOrgMappingRef, {
         organizationId: orgId,
     });
 
     // 2d. Log consent
-    const consentRef = doc(adminDb, "consents", userRecord.uid);
+    const consentRef = adminDb.doc(`consents/${userRecord.uid}`);
     batch.set(consentRef, {
       userId: userRecord.uid,
       termsOfService: true,
       privacyPolicy: true,
-      timestamp: serverTimestamp(),
+      timestamp: new Date(),
     });
     
     // Commit the batch
     await batch.commit();
 
-    // Step 3: Create a session cookie for the new user
-    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const customToken = await adminAuth.createCustomToken(userRecord.uid);
-    // We can't use the custom token to create a session cookie directly.
-    // The intended flow is for the client to sign in with the token, get an ID token,
-    // and send that ID token to the server.
-    // However, for a server action, a simpler flow is to create the user and then sign them in on the client,
-    // or create the cookie directly after a successful password-based sign-in.
-    // Given the issues, we'll redirect to login for the user to sign in themselves.
-    // A more advanced flow would pass a token to the client.
-    // For now, let's create the session cookie manually after user creation.
-    const idToken = await adminAuth.createCustomToken(userRecord.uid);
-    const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
-    cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
+    // On success, redirect to login page for user to sign in.
+    // This is a more robust pattern than trying to create a session cookie here.
+    return redirect('/login?signup=success');
 
   } catch (error: any) {
     let errorMessage = "An unexpected error occurred during signup.";
@@ -161,9 +150,6 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     }
     return { type: 'error', message: errorMessage, errors, fields };
   }
-  
-  // On success, redirect to the dashboard
-  return redirect('/dashboard');
 }
 
 
@@ -277,7 +263,7 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
   
   try {
     const usersInOrgRef = collection(adminDb, "organizations", organizationId, "users");
-    const userSearchQuery = query(usersInOrgRef, where("email", "==", email), limit(1));
+    const userSearchQuery = query(usersInOrgRef, where("email", "==", email));
     const existingUserSnap = await getDocs(userSearchQuery);
 
     if (!existingUserSnap.empty) {
@@ -294,7 +280,7 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
       email: email,
       photoURL: null,
       isAdmin: false, // Invited users are members by default
-      createdAt: serverTimestamp(),
+      createdAt: new Date(),
     });
 
   } catch (error: any) {
@@ -313,5 +299,3 @@ export async function signOut() {
   cookies().delete('session');
   redirect('/login');
 }
-
-    

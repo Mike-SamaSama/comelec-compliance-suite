@@ -1,15 +1,17 @@
 
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, Suspense } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AlertCircle, LogIn } from "lucide-react";
 import { signInWithEmail, type SignInState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -25,8 +27,19 @@ const initialState: SignInState = {
   message: ""
 };
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [state, formAction] = useActionState(signInWithEmail, initialState);
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (searchParams.get('signup') === 'success') {
+      toast({
+        title: "Account Created",
+        description: "Your organization has been created. Please log in to continue.",
+      });
+    }
+  }, [searchParams, toast]);
 
   return (
     <div className="space-y-6">
@@ -64,4 +77,13 @@ export default function LoginPage() {
       </p>
     </div>
   );
+}
+
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginPageContent />
+    </Suspense>
+  )
 }

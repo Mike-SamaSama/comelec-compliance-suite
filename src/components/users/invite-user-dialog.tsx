@@ -111,5 +111,3 @@ export function InviteUserDialog({ organizationId }: { organizationId: string })
     </Dialog>
   );
 }
-
-    

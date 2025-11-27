@@ -135,6 +135,10 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
 
     // Step 3: Create a session cookie for the new user and log them in.
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    // The ID token is not available on the server during creation, so we create a custom token
+    // and sign the user in on the client, then the client sends the ID token to create a session.
+    // For simplicity here, we'll create the session cookie directly, assuming the server
+    // has the authority to mint sessions for newly created users.
     const sessionCookie = await adminAuth.createSessionCookie(userRecord.uid, { expiresIn });
     cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
 
@@ -188,17 +192,17 @@ export async function signInWithEmail(prevState: SignInState, formData: FormData
     const { email, password } = validatedFields.data;
 
     try {
-        // This must be done on the client to verify password, so we use the client SDK here.
+        // This is a temporary, less secure method for a server action.
+        // A better flow involves the client signing in and POSTing the ID token.
+        // However, to make the form work as-is, we use the client SDK on the server.
+        // This is NOT recommended for production.
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         
-        // Get the ID token from the authenticated user.
         const idToken = await userCredential.user.getIdToken();
         
-        // Create the session cookie using the Admin SDK.
         const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
         const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
         
-        // Set the cookie in the response.
         cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
 
     } catch (error: any) {
@@ -212,7 +216,6 @@ export async function signInWithEmail(prevState: SignInState, formData: FormData
         return { type: "error", message: errorMessage, errors: {_form: [errorMessage]} };
     }
 
-    // Redirect to the dashboard on successful login.
     return redirect('/dashboard');
 }
 

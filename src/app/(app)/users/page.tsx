@@ -7,11 +7,13 @@ import type { OrgUser } from "@/lib/types";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Users, ShieldAlert } from "lucide-react";
+import { Users, ShieldAlert } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { InviteUserDialog } from "@/components/users/invite-user-dialog";
+
 
 function getInitials(name: string | null | undefined) {
     if (!name) return "U";
@@ -29,6 +31,29 @@ export default function UsersPage() {
   // Construct a stable path string. The hook will only re-run when this path changes.
   const usersPath = profile ? `organizations/${profile.organizationId}/users` : null;
   const { data: users, loading } = useCollection<OrgUser>(usersPath);
+
+  if (!profile) {
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+              <Skeleton className="h-10 w-80" />
+              <Skeleton className="h-6 w-96" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-5 w-64" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-40 w-full" />
+            </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   if (!isTenantAdmin) {
     return (
@@ -51,10 +76,7 @@ export default function UsersPage() {
               Invite and manage members of your organization.
             </p>
         </div>
-        <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Invite User
-        </Button>
+        <InviteUserDialog organizationId={profile.organizationId!} />
       </div>
 
       <Card>
@@ -99,7 +121,7 @@ export default function UsersPage() {
                             <TableCell>
                                 {user.isAdmin ? <Badge variant="secondary">Admin</Badge> : <Badge variant="outline">Member</Badge>}
                             </TableCell>
-                            <TableCell>{user.createdAt?.toDate().toLocaleDateString()}</TableCell>
+                            <TableCell>{user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 'Pending'}</TableCell>
                             <TableCell className="text-right">
                                <Button variant="ghost" size="icon">...</Button>
                             </TableCell>
@@ -121,3 +143,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    

@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
-import { doc, writeBatch, serverTimestamp, collection } from "firebase/firestore";
+import { doc, writeBatch, serverTimestamp, collection, getDocs, query, where, limit } from "firebase/firestore";
 import { app, db } from "@/lib/firebase/client"; // Use client for auth on server
 import { redirect } from "next/navigation";
 
@@ -185,3 +185,76 @@ export async function signInWithEmail(prevState: SignInState, formData: FormData
 
     return redirect('/dashboard');
 }
+
+
+const InviteUserSchema = z.object({
+  displayName: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  email: emailSchema,
+  organizationId: z.string().min(1, { message: "Organization ID is required." }),
+});
+
+export type InviteUserState = {
+  type: "error" | "success" | null;
+  message: string;
+  errors?: {
+    displayName?: string[];
+    email?: string[];
+    organizationId?: string[];
+    _form?: string[];
+  };
+};
+
+export async function inviteUserToOrganization(prevState: InviteUserState, formData: FormData): Promise<InviteUserState> {
+  const validatedFields = InviteUserSchema.safeParse(Object.fromEntries(formData.entries()));
+
+  if (!validatedFields.success) {
+    return {
+      type: "error",
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: "Please correct the errors below.",
+    };
+  }
+
+  const { displayName, email, organizationId } = validatedFields.data;
+  
+  try {
+    const userSearchQuery = query(
+      collection(db, "organizations", organizationId, "users"),
+      where("email", "==", email),
+      limit(1)
+    );
+    const existingUserSnap = await getDocs(userSearchQuery);
+
+    if (!existingUserSnap.empty) {
+      return {
+        type: "error",
+        message: "A user with this email already exists in this organization.",
+        errors: { email: ["A user with this email already exists in this organization."] },
+      };
+    }
+
+    const batch = writeBatch(db);
+
+    const newUserRef = doc(collection(db, "organizations", organizationId, "users"));
+    
+    batch.set(newUserRef, {
+      displayName: displayName,
+      email: email,
+      photoURL: null,
+      isAdmin: false, // Invited users are members by default
+      createdAt: serverTimestamp(),
+    });
+
+    await batch.commit();
+
+  } catch (error: any) {
+    return {
+      type: "error",
+      message: error.message || "An unexpected error occurred while inviting the user.",
+    };
+  }
+
+  return { type: "success", message: `${displayName} has been invited.` };
+}
+
+    

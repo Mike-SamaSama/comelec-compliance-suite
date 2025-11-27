@@ -50,7 +50,7 @@
           "description": "The timestamp when the user joined the organization."
         }
       },
-      "required": ["displayName", "email", "isAdmin", "createdAt"]
+      "required": ["displayName", "email", "createdAt"]
     },
     "PlatformAdmin": {
       "title": "Platform Administrator",
@@ -172,3 +172,4 @@
     }
   }
 }
+    

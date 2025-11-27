@@ -1,3 +1,4 @@
+
 import type { User as FirebaseUser, IdTokenResult } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 
@@ -36,3 +37,5 @@ export interface AuthContextType {
   isPlatformAdmin: boolean;
   isTenantAdmin: boolean;
 }
+
+    

@@ -44,6 +44,8 @@ export default function SignupPage() {
     }
   }, [state, router, toast]);
 
+  const emailInUse = state?.errors?.email?.[0].includes('already in use');
+
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -74,7 +76,17 @@ export default function SignupPage() {
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" placeholder="m@example.com" required defaultValue={state?.fields?.email} />
-          {state?.errors?.email && <p className="text-sm font-medium text-destructive" dangerouslySetInnerHTML={{ __html: state.errors.email[0] }} />}
+          {emailInUse ? (
+            <p className="text-sm font-medium text-destructive">
+              This email address is already in use. Please{' '}
+              <Link href="/login" className="font-bold underline">
+                login
+              </Link>{' '}
+              instead.
+            </p>
+          ) : (
+            state?.errors?.email && <p className="text-sm font-medium text-destructive">{state.errors.email[0]}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>

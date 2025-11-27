@@ -114,7 +114,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     const errors: SignUpState['errors'] = {};
 
     if (error.code === "auth/email-already-in-use") {
-        errors.email = ["This email address is already in use by another account. Please <a href='/login' class='font-bold underline'>login</a> instead."];
+        errors.email = ["This email address is already in use."];
         errorMessage = "Please correct the errors below."
     } else if (error.code === 'auth/api-key-not-valid') {
         errorMessage = "The Firebase API key is not valid. Please check your configuration.";

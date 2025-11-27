@@ -1,17 +1,16 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
-import { collection, query, onSnapshot, DocumentData } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
 import { useAuth } from "@/hooks/use-auth";
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Users, ShieldAlert } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Note: This component is now using placeholder data.
+// A dedicated hook (e.g., useCollection) should be implemented to fetch data efficiently.
 
 interface OrgUser {
     id: string;
@@ -22,36 +21,12 @@ interface OrgUser {
 }
 
 export default function UsersPage() {
-  const { isTenantAdmin, profile } = useAuth();
-  const [users, setUsers] = useState<OrgUser[]>([]);
-  const [loading, setLoading] = useState(true);
-
-   useEffect(() => {
-    if (!profile?.organizationId) return;
-
-    const usersQuery = query(collection(db, "organizations", profile.organizationId, "users"));
-    
-    const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
-      const usersData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          displayName: data.displayName,
-          email: data.email,
-          isAdmin: data.isAdmin,
-          createdAt: data.createdAt?.toDate(),
-        } as OrgUser;
-      });
-      setUsers(usersData);
-      setLoading(false);
-    }, (error) => {
-        console.error("Error fetching users:", error);
-        setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [profile?.organizationId]);
-
+  const { isTenantAdmin } = useAuth();
+  
+  // This state is for demonstration purposes. In a real app,
+  // this data would be fetched via a custom hook.
+  const loading = true;
+  const users: OrgUser[] = [];
 
   if (!isTenantAdmin) {
     return (
@@ -104,7 +79,7 @@ export default function UsersPage() {
                                 <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                                 <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                                 <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-8 w-8 inline-block" /></TableCell>
                             </TableRow>
                         ))
                     ) : users.map(user => (
@@ -136,3 +111,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    

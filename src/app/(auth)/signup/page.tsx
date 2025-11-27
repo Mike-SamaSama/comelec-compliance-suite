@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
@@ -164,14 +165,17 @@ export default function SignupPage() {
         </div>
         <div className="flex items-start space-x-2 pt-2">
           <Checkbox id="consent" name="consent" />
-          <div className="grid gap-1.5 leading-none">
-            <label htmlFor="consent" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              I agree to the terms and privacy policy.
-            </label>
-            <p className="text-sm text-muted-foreground">
-              You agree to our <Link href="/terms-of-service" className="underline hover:text-primary">Terms of Service</Link> and <Link href="/privacy-policy" className="underline hover:text-primary">Privacy Policy</Link>.
-            </p>
-          </div>
+          <Label htmlFor="consent" className="text-sm font-normal text-muted-foreground cursor-pointer">
+            I agree to the terms and privacy policy. You agree to our{' '}
+            <Link href="/terms-of-service" className="underline hover:text-primary">
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link href="/privacy-policy" className="underline hover:text-primary">
+              Privacy Policy
+            </Link>
+            .
+          </Label>
         </div>
         {formState?.errors?.consent && <p className="text-sm font-medium text-destructive">{formState.errors.consent[0]}</p>}
 
@@ -180,7 +184,7 @@ export default function SignupPage() {
           {isPending ? 'Creating Account...' : 'Create Account'}
         </Button>
       </form>
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="px-8 text-center text-sm text-muted-foreground">
         Already have an account?{' '}
         <Link href="/login" className="underline underline-offset-4 hover:text-primary">
           Login

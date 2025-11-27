@@ -1,7 +1,8 @@
 
 "use client";
 
-import { MoreHorizontal, Shield, User, Trash2 } from "lucide-react";
+import { useState, useActionState, useEffect, useTransition } from "react";
+import { MoreHorizontal, Shield, User, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -26,7 +27,6 @@ import {
 import type { OrgUser } from "@/lib/types";
 import { updateUserRole, removeUserFromOrg } from "@/app/actions/users";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
 
 interface UserActionsProps {
   targetUser: OrgUser;
@@ -34,72 +34,86 @@ interface UserActionsProps {
   isCurrentUser: boolean;
 }
 
+const initialRemoveState = {
+  type: null,
+  message: "",
+};
+
+
 export function UserActions({ targetUser, organizationId, isCurrentUser }: UserActionsProps) {
   const { toast } = useToast();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  const handleAction = async (action: (formData: FormData) => Promise<{ type: string; message: string }>, formData: FormData) => {
-    const result = await action(formData);
-    if (result.type === 'success') {
+  const [removeState, removeAction] = useActionState(removeUserFromOrg, initialRemoveState);
+
+  useEffect(() => {
+    if (removeState.type) {
       toast({
-        title: "Success",
-        description: result.message,
+        title: removeState.type === 'success' ? "Success" : "Error",
+        description: removeState.message,
+        variant: removeState.type === 'error' ? "destructive" : "default",
       });
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: result.message,
-      });
+      if (removeState.type === 'success') {
+        setIsAlertOpen(false);
+        setIsMenuOpen(false);
+      }
     }
-    setIsAlertOpen(false);
-  };
+  }, [removeState, toast]);
+
 
   const handleUpdateRole = (isAdmin: boolean) => {
-    const formData = new FormData();
-    formData.append("organizationId", organizationId);
-    formData.append("targetUserId", targetUser.id);
-    formData.append("isAdmin", String(isAdmin));
-    handleAction(updateUserRole, formData);
+    startTransition(async () => {
+        const formData = new FormData();
+        formData.append("organizationId", organizationId);
+        formData.append("targetUserId", targetUser.id);
+        formData.append("isAdmin", String(isAdmin));
+        
+        const result = await updateUserRole(formData);
+        
+        toast({
+            title: result.type === 'success' ? "Success" : "Error",
+            description: result.message,
+            variant: result.type === 'error' ? "destructive" : "default",
+        });
+
+        if (result.type === 'success') {
+          setIsMenuOpen(false);
+        }
+    });
   };
   
-  const handleRemoveUser = () => {
-    const formData = new FormData();
-    formData.append("organizationId", organizationId);
-    formData.append("targetUserId", targetUser.id);
-    handleAction(removeUserFromOrg, formData);
-  }
-
   if (isCurrentUser) {
     return null; // Don't show menu for the current user
   }
 
   return (
     <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-      <DropdownMenu>
+      <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
+          <Button variant="ghost" className="h-8 w-8 p-0" disabled={isPending}>
             <span className="sr-only">Open menu</span>
-            <MoreHorizontal className="h-4 w-4" />
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {targetUser.isAdmin ? (
-            <DropdownMenuItem onClick={() => handleUpdateRole(false)}>
+            <DropdownMenuItem disabled={isPending} onClick={() => handleUpdateRole(false)}>
               <User className="mr-2 h-4 w-4" />
               <span>Make Member</span>
             </DropdownMenuItem>
           ) : (
-            <DropdownMenuItem onClick={() => handleUpdateRole(true)}>
+            <DropdownMenuItem disabled={isPending} onClick={() => handleUpdateRole(true)}>
               <Shield className="mr-2 h-4 w-4" />
               <span>Make Admin</span>
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
           <AlertDialogTrigger asChild>
-            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" disabled={isPending}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 <span>Remove User</span>
             </DropdownMenuItem>
@@ -108,18 +122,22 @@ export function UserActions({ targetUser, organizationId, isCurrentUser }: UserA
       </DropdownMenu>
 
       <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This action will permanently remove <span className="font-bold">{targetUser.displayName}</span> from the organization. They will lose all access. This cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleRemoveUser} className="bg-destructive hover:bg-destructive/90">
-            Yes, remove user
-          </AlertDialogAction>
-        </AlertDialogFooter>
+        <form action={removeAction}>
+            <input type="hidden" name="organizationId" value={organizationId} />
+            <input type="hidden" name="targetUserId" value={targetUser.id} />
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action will permanently remove <span className="font-bold">{targetUser.displayName}</span> from the organization. They will lose all access. This cannot be undone.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button type="submit" variant="destructive">
+                Yes, remove user
+            </Button>
+            </AlertDialogFooter>
+        </form>
       </AlertDialogContent>
     </AlertDialog>
   );

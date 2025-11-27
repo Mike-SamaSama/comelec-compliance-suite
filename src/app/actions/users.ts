@@ -28,17 +28,19 @@ async function verifyTenantAdmin(organizationId: string): Promise<string> {
 const UpdateRoleSchema = z.object({
   organizationId: z.string(),
   targetUserId: z.string(),
-  isAdmin: z.boolean(),
+  isAdmin: z.enum(['true', 'false']), // Form data values are strings
 });
 
-export async function updateUserRole(formData: FormData) {
+export async function updateUserRole(formData: FormData): Promise<{ type: 'success' | 'error', message: string }> {
   try {
     const validatedFields = UpdateRoleSchema.safeParse(Object.fromEntries(formData.entries()));
     if (!validatedFields.success) {
+      console.error("Validation failed", validatedFields.error.flatten().fieldErrors);
       throw new Error('Invalid input for updating user role.');
     }
     
-    const { organizationId, targetUserId, isAdmin } = validatedFields.data;
+    const { organizationId, targetUserId } = validatedFields.data;
+    const isAdmin = validatedFields.data.isAdmin === 'true'; // Convert string to boolean
     
     const callingUserId = await verifyTenantAdmin(organizationId);
 
@@ -68,7 +70,7 @@ const RemoveUserSchema = z.object({
   targetUserId: z.string(),
 });
 
-export async function removeUserFromOrg(formData: FormData) {
+export async function removeUserFromOrg(prevState: any, formData: FormData): Promise<{ type: 'success' | 'error', message: string }> {
     try {
     const validatedFields = RemoveUserSchema.safeParse(Object.fromEntries(formData.entries()));
     if (!validatedFields.success) {

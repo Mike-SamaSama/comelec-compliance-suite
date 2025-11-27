@@ -1,4 +1,5 @@
 
+import 'dotenv/config';
 import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -60,5 +61,3 @@ export async function getIsTenantAdmin(userId: string, organizationId: string): 
     return false; // Fail securely.
   }
 }
-
-    

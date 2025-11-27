@@ -13,12 +13,6 @@ let adminApp: App | undefined;
 let adminAuth: Auth | undefined;
 let adminDb: Firestore | undefined;
 
-// The service account key is securely stored as an environment variable.
-// We must parse it from a stringified JSON.
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-  : undefined;
-
 function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
   if (adminApp && adminAuth && adminDb) {
     return { app: adminApp, auth: adminAuth, db: adminDb };
@@ -28,15 +22,9 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
   
   if (existingApp) {
     adminApp = existingApp;
-  } else if (serviceAccount) {
-    // Initialize with the service account if it's available.
-    adminApp = initializeApp({
-      credential: cert(serviceAccount),
-      projectId: FIREBASE_CONFIG.projectId,
-    }, 'admin');
   } else {
-    // Fallback for environments where Application Default Credentials are used.
-    // This is the correct way for managed Google Cloud environments.
+    // Use Application Default Credentials (ADC) in a managed environment.
+    // Explicitly set the projectId to ensure it matches the client-side config.
     adminApp = initializeApp({
       projectId: FIREBASE_CONFIG.projectId,
     }, 'admin');

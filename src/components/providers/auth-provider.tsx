@@ -1,0 +1,125 @@
+"use client";
+
+import { createContext, useEffect, useState, ReactNode } from 'react';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase/client';
+import type { AuthContextType, UserProfile } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
+
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Helper function to simulate fetching user profile data from Firestore
+async function getUserProfile(uid: string): Promise<UserProfile | null> {
+    // STUB: This is a placeholder. In a real app, this function would interact with Firestore.
+    // This is a simplified simulation. A real implementation should handle errors and edge cases.
+    
+    // 1. Check if user is a platform admin
+    const platformAdminRef = doc(db, 'platform_admins', uid);
+    const platformAdminSnap = await getDoc(platformAdminRef);
+    if (platformAdminSnap.exists()) {
+        return {
+            uid,
+            email: platformAdminSnap.data()?.email || null,
+            displayName: platformAdminSnap.data()?.displayName || 'Platform Admin',
+            photoURL: platformAdminSnap.data()?.photoURL || null,
+            organizationId: null,
+            organizationName: 'Platform',
+            role: 'platformAdmin',
+            isAdmin: true,
+        };
+    }
+
+    // 2. If not, get their organization mapping from a root-level users collection
+    const userOrgMappingRef = doc(db, 'user_org_mappings', uid);
+    const userOrgMappingSnap = await getDoc(userOrgMappingRef);
+    const organizationId = userOrgMappingSnap.data()?.organizationId;
+
+    if (!organizationId) {
+        console.warn(`No organization mapping found for user ${uid}`);
+        return null; // Or a default state
+    }
+
+    // 3. Get the user's details and role from within their organization's subcollection
+    const tenantUserRef = doc(db, 'organizations', organizationId, 'users', uid);
+    const tenantUserSnap = await getDoc(tenantUserRef);
+
+    if (!tenantUserSnap.exists()) {
+        console.warn(`User document not found in tenant ${organizationId} for user ${uid}`);
+        return null;
+    }
+
+    const orgRef = doc(db, 'organizations', organizationId);
+    const orgSnap = await getDoc(orgRef);
+
+    const userData = tenantUserSnap.data();
+    const isAdmin = userData.isAdmin || false;
+
+    return {
+        uid,
+        email: userData.email || null,
+        displayName: userData.displayName || 'Tenant User',
+        photoURL: userData.photoURL || null,
+        organizationId,
+        organizationName: orgSnap.data()?.name || 'My Organization',
+        role: isAdmin ? 'tenantAdmin' : 'tenantMember',
+        isAdmin,
+    };
+}
+
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        
+        // Use onSnapshot for real-time profile updates
+        const userOrgMappingRef = doc(db, 'user_org_mappings', firebaseUser.uid);
+        const profileUnsubscribe = onSnapshot(userOrgMappingRef, async (snap) => {
+            const userProfile = await getUserProfile(firebaseUser.uid);
+            setProfile(userProfile);
+            setLoading(false);
+        });
+
+        // Detach listener on cleanup
+        return () => profileUnsubscribe();
+
+      } else {
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) {
+     return (
+        <div className="flex h-screen w-screen items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-[250px]" />
+                    <Skeleton className="h-4 w-[200px]" />
+                </div>
+            </div>
+        </div>
+     )
+  }
+
+  const value = {
+    user,
+    profile,
+    loading,
+    isPlatformAdmin: profile?.role === 'platformAdmin',
+    isTenantAdmin: profile?.role === 'tenantAdmin',
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}

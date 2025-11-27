@@ -25,7 +25,7 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
       "type": "service_account",
       "project_id": "studio-9020847636-9d4fa",
       "private_key_id": "e4f8d298538b30f81d137b349b109e543666d66e",
-      "privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCp\n-----END PRIVATE KEY-----",
+      "privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCp\n-----END PRIVATE KEY-----\n".replace(/\\n/g, '\n'),
       "client_email": "firebase-adminsdk-3y52g@studio-9020847636-9d4fa.iam.gserviceaccount.com",
       "client_id": "111360058319690184423",
       "auth_uri": "https://accounts.google.com/o/oauth2/auth",

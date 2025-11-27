@@ -23,6 +23,14 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
   if (existingApp) {
     adminApp = existingApp;
   } else {
+      // In a local development environment, connect to the emulators.
+      // The GOOGLE_APPLICATION_CREDENTIALS check is a way to detect a deployed environment.
+    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+        process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+        console.log("Connecting to Firebase Emulators from Admin SDK");
+    }
+
     // Use Application Default Credentials (ADC) in a managed environment.
     // Explicitly set the projectId to ensure it matches the client-side config.
     adminApp = initializeApp({

@@ -1,11 +1,8 @@
 
 "use client";
 
-import { useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCollection } from "@/hooks/use-collection";
-import { collection, query } from "firebase/firestore";
-import { db } from "@/lib/firebase/client"; 
 import type { OrgUser } from "@/lib/types";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 function getInitials(name: string | null | undefined) {
     if (!name) return "U";
     const parts = name.split(" ");
-    if (parts.length > 1) {
-      return (parts[0][0] + (parts[parts.length - 1][0] || "")).toUpperCase();
+    if (parts.length > 1 && parts[0] && parts[parts.length - 1]) {
+      return (parts[0][0] + (parts[parts.length - 1][0])).toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
 }
@@ -29,12 +26,9 @@ function getInitials(name: string | null | undefined) {
 export default function UsersPage() {
   const { profile, isTenantAdmin } = useAuth();
   
-  const usersQuery = useMemo(() => {
-    if (!profile?.organizationId) return null;
-    return query(collection(db, `organizations/${profile.organizationId}/users`));
-  }, [profile?.organizationId]);
-
-  const { data: users, loading } = useCollection<OrgUser>(usersQuery);
+  // Construct a stable path string for the hook. This is the correct pattern.
+  const usersPath = profile ? `organizations/${profile.organizationId}/users` : null;
+  const { data: users, loading } = useCollection<OrgUser>(usersPath);
 
   if (!isTenantAdmin) {
     return (

@@ -9,13 +9,12 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
-import { doc, writeBatch, serverTimestamp, collection, getDocs, query, where, limit, getDoc, runTransaction } from "firebase/firestore";
-import { app, db } from "@/lib/firebase/client"; // Use client for auth on server
-import { adminAuth, getIsTenantAdmin } from "@/lib/firebase/server";
+import { doc, writeBatch, serverTimestamp, collection, getDocs, query, where, limit, runTransaction } from "firebase/firestore";
+import { app, db } from "@/lib/firebase/client"; // db is needed for transactions initiated on server
+import { adminAuth, adminDb, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
-import { Auth, signInWithCustomToken } from "firebase/auth";
 
-// This needs to be a separate instance for server actions
+// This needs to be a separate instance for server actions that use client auth
 const auth = getAuth(app);
 
 const emailSchema = z.string().email({ message: "Invalid email address." });
@@ -72,69 +71,89 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
   }
 
   const { email, password, displayName, organizationName } = validatedFields.data;
-
+  
+  let userCredential;
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    await updateProfile(user, { displayName: displayName });
-
-    const batch = writeBatch(db);
-
-    const orgRef = doc(collection(db, "organizations"));
-    const orgId = orgRef.id;
-
-    batch.set(orgRef, {
-      name: organizationName,
-      ownerId: user.uid,
-      createdAt: serverTimestamp(),
-    });
-    
-    const userInOrgRef = doc(db, "organizations", orgId, "users", user.uid);
-    batch.set(userInOrgRef, {
-      displayName: displayName,
-      email: user.email,
-      photoURL: user.photoURL,
-      isAdmin: true, // First user is the admin
-      createdAt: serverTimestamp(),
-    });
-    
-    const userOrgMappingRef = doc(db, 'user_org_mappings', user.uid);
-    batch.set(userOrgMappingRef, {
-        organizationId: orgId,
-    });
-
-    const consentRef = doc(db, "consents", user.uid);
-    batch.set(consentRef, {
-      userId: user.uid,
-      termsOfService: true,
-      privacyPolicy: true,
-      timestamp: serverTimestamp(),
-    });
-
-    await batch.commit();
-
+    // Step 1: Create the Firebase Auth user first. If this fails, we stop.
+    userCredential = await createUserWithEmailAndPassword(auth, email, password);
   } catch (error: any) {
-    let errorMessage = "An unexpected error occurred during signup.";
-    const errors: SignUpState['errors'] = {};
-
-    if (error.code === "auth/email-already-in-use") {
+     let errorMessage = "An unexpected error occurred during signup.";
+     const errors: SignUpState['errors'] = {};
+     if (error.code === "auth/email-already-in-use") {
         errors.email = ["This email address is already in use by another account."];
         errorMessage = "This email address is already in use. Please login instead."
-    } else {
+     } else {
         errorMessage = error.message || errorMessage;
         errors._form = [errorMessage];
-    }
+     }
+     return { type: "error", message: errorMessage, errors, fields };
+  }
+
+  const user = userCredential.user;
+  await updateProfile(user, { displayName: displayName });
+
+  try {
+    // Step 2: Use a transaction to create the organization and user profile
+    await runTransaction(adminDb, async (transaction) => {
+      const orgsRef = collection(adminDb, "organizations");
+      const orgQuery = query(orgsRef, where("name", "==", organizationName));
+      const orgQuerySnapshot = await transaction.get(orgQuery);
+
+      if (!orgQuerySnapshot.empty) {
+        throw new Error(`An organization named "${organizationName}" already exists.`);
+      }
+
+      const orgRef = doc(collection(adminDb, "organizations"));
+      const orgId = orgRef.id;
+
+      transaction.set(orgRef, {
+        name: organizationName,
+        ownerId: user.uid,
+        createdAt: serverTimestamp(),
+      });
+
+      const userInOrgRef = doc(adminDb, "organizations", orgId, "users", user.uid);
+      transaction.set(userInOrgRef, {
+        displayName: displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+        isAdmin: true, // First user is the admin
+        createdAt: serverTimestamp(),
+      });
+      
+      const userOrgMappingRef = doc(adminDb, 'user_org_mappings', user.uid);
+      transaction.set(userOrgMappingRef, {
+          organizationId: orgId,
+      });
+
+      const consentRef = doc(adminDb, "consents", user.uid);
+      transaction.set(consentRef, {
+        userId: user.uid,
+        termsOfService: true,
+        privacyPolicy: true,
+        timestamp: serverTimestamp(),
+      });
+    });
+
+  } catch (error: any) {
+    // If the transaction fails, we should ideally delete the auth user
+    // to allow them to try again. This is a "rollback".
+    await adminAuth.deleteUser(user.uid);
     
     return { 
       type: "error", 
-      message: errorMessage,
-      errors: errors,
+      message: error.message || "An unexpected error occurred while setting up your organization.",
+      errors: { _form: [error.message] },
       fields,
     };
   }
   
-  return { type: 'success', message: 'Account created successfully!' };
+  // If we get here, both auth user and DB records were created successfully.
+  // We need to sign the user in to create a session cookie.
+  await signInWithEmailAndPassword(auth, email, password);
+
+  // Redirect to dashboard after successful login and data creation
+  return redirect('/dashboard');
 }
 
 
@@ -200,7 +219,7 @@ export type InviteUserState = {
   };
 };
 
-async function getUserIdFromHeader() {
+async function getUserIdFromHeader(): Promise<string | null> {
     const authHeader = headers().get('Authorization');
     if (authHeader) {
       const token = authHeader.split('Bearer ')[1];
@@ -242,7 +261,7 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
   
   try {
     const userSearchQuery = query(
-      collection(db, "organizations", organizationId, "users"),
+      collection(adminDb, "organizations", organizationId, "users"),
       where("email", "==", email),
       limit(1)
     );
@@ -256,8 +275,8 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
       };
     }
 
-    const batch = writeBatch(db);
-    const newUserRef = doc(collection(db, "organizations", organizationId, "users"));
+    const batch = adminDb.batch();
+    const newUserRef = doc(collection(adminDb, "organizations", organizationId, "users"));
     
     batch.set(newUserRef, {
       displayName: displayName,

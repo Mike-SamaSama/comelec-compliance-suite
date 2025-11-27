@@ -19,6 +19,7 @@ export interface Organization {
   id: string;
   name: string;
   createdAt: Timestamp;
+  ownerId: string;
 }
 
 export interface OrgUser {
@@ -27,7 +28,7 @@ export interface OrgUser {
   email: string;
   photoURL?: string;
   isAdmin: boolean;
-  createdAt: Timestamp;
+  createdAt?: Timestamp;
 }
 
 export interface AuthContextType {
@@ -37,5 +38,3 @@ export interface AuthContextType {
   isPlatformAdmin: boolean;
   isTenantAdmin: boolean;
 }
-
-    

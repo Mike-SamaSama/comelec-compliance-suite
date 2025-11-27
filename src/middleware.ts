@@ -13,11 +13,15 @@ export async function middleware(request: NextRequest) {
   const authPaths = ['/login', '/signup'];
   const isAuthPath = authPaths.some(path => request.nextUrl.pathname.startsWith(path));
 
+  // Define public paths that don't require authentication.
+  const publicPaths = ['/', '/terms-of-service', '/privacy-policy'];
+  const isPublicPath = publicPaths.includes(request.nextUrl.pathname);
+
   // 1. If there's no session cookie...
   if (!session) {
-    // And the user is trying to access a protected page (not the root landing page or an auth page),
+    // And the user is trying to access a protected page (not a public or auth page),
     // redirect them to the login page.
-    if (request.nextUrl.pathname.startsWith('/app')) {
+    if (!isPublicPath && !isAuthPath) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('next', request.nextUrl.pathname);
       return NextResponse.redirect(loginUrl);
@@ -40,16 +44,9 @@ export async function middleware(request: NextRequest) {
 
   } catch (error) {
     // Session cookie is invalid (expired, revoked, etc.).
-    // Clear it and redirect to login, but only if they are on a protected path.
-    // This prevents redirect loops if the user is already on a public page.
-    if (request.nextUrl.pathname.startsWith('/app')) {
-      console.error('Invalid session on protected route. Redirecting to login.', error);
-      const response = NextResponse.redirect(new URL('/login', request.url));
-      response.cookies.delete('session');
-      return response;
-    }
-    // If they are on a public page with an invalid cookie, just clear it and let them continue.
-    const response = NextResponse.next();
+    // We need to clear it and redirect to login.
+    console.error('Invalid session cookie. Redirecting to login.', error);
+    const response = NextResponse.redirect(new URL('/login', request.url));
     response.cookies.delete('session');
     return response;
   }

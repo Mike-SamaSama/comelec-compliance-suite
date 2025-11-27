@@ -3,16 +3,34 @@
 
 import { z } from "zod";
 import { cookies } from 'next/headers';
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-} from "firebase/auth";
-import { app } from "@/lib/firebase/client"; 
 import { adminAuth, adminDb, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
 
 
-const auth = getAuth(app);
+const authSchema = z.object({
+  idToken: z.string(),
+});
+
+export async function createSessionCookie(formData: FormData): Promise<{ status: string; error?: string }> {
+    const validatedFields = authSchema.safeParse(Object.fromEntries(formData.entries()));
+
+    if (!validatedFields.success) {
+        return { status: "error", error: "Invalid ID token provided." };
+    }
+    
+    const { idToken } = validatedFields.data;
+
+    try {
+        const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+        const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
+        cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
+        return { status: "success" };
+    } catch (error: any) {
+        console.error("Error creating session cookie:", error);
+        return { status: "error", error: "Failed to create session." };
+    }
+}
+
 
 const emailSchema = z.string().email({ message: "Invalid email address." });
 const passwordSchema = z.string().min(8, { message: "Password must be at least 8 characters long." });
@@ -165,28 +183,14 @@ export async function signInWithEmail(prevState: SignInState, formData: FormData
             message: "Invalid email or password.",
         };
     }
+    
+    // This server action is now a placeholder as the logic is handled client-side.
+    // The actual sign-in happens in the component, and if successful,
+    // createSessionCookie is called.
+    // This structure is kept to prevent breaking the form's action binding,
+    // but its internal logic is now different.
 
-    const { email, password } = validatedFields.data;
-
-    try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const idToken = await userCredential.user.getIdToken();
-        const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-        const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
-        cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
-
-    } catch (error: any) {
-        let errorMessage = "Invalid login credentials. Please try again.";
-        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-          errorMessage = "Invalid email or password. Please try again."
-        } else {
-          errorMessage = error.message || "An unexpected error occurred. Please try again.";
-        }
-
-        return { type: "error", message: errorMessage, errors: {_form: [errorMessage]} };
-    }
-
-    return redirect('/dashboard');
+    return { type: 'success', message: 'Proceeding with client-side login.' };
 }
 
 
@@ -257,9 +261,9 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
     await usersInOrgRef.add({
       displayName: displayName,
       email: email,
-      photoURL: null,
-      isAdmin: false, // Invited users are members by default
       createdAt: new Date(),
+      isAdmin: false, // Invited users are members by default
+      photoURL: null,
     });
 
   } catch (error: any) {

@@ -7,9 +7,8 @@ import {
   getAuth,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-import { addDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { app } from "@/lib/firebase/client"; 
-import { adminAuth, adminDb, getIsTenantAdmin } from "@/lib/firebase/server";
+import { getAdminApp, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
 
 
@@ -49,6 +48,8 @@ export type SignUpState = {
 
 
 export async function signUpWithOrganization(prevState: SignUpState, formData: FormData): Promise<SignUpState> {
+  const { auth: adminAuth, db: adminDb } = getAdminApp();
+
   const validatedFields = SignUpSchema.safeParse(Object.fromEntries(formData.entries()));
   
   const fields = {
@@ -72,9 +73,9 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
   
   try {
     // Pre-check: Does an organization with this name already exist? This must be done first.
-    const orgsRef = collection(adminDb, "organizations");
-    const orgQuery = query(orgsRef, where("name", "==", organizationName));
-    const orgSnapshot = await getDocs(orgQuery);
+    const orgsRef = adminDb.collection("organizations");
+    const orgQuery = orgsRef.where("name", "==", organizationName);
+    const orgSnapshot = await orgQuery.get();
     if (!orgSnapshot.empty) {
       return { 
           type: "error", 
@@ -173,6 +174,7 @@ export type SignInState = {
 }
 
 export async function signInWithEmail(prevState: SignInState, formData: FormData): Promise<SignInState> {
+    const { auth: adminAuth } = getAdminApp();
     const validatedFields = SignInSchema.safeParse(Object.fromEntries(formData.entries()));
 
     if (!validatedFields.success) {
@@ -234,6 +236,7 @@ export type InviteUserState = {
 
 
 export async function inviteUserToOrganization(prevState: InviteUserState, formData: FormData): Promise<InviteUserState> {
+  const { auth: adminAuth, db: adminDb } = getAdminApp();
   const validatedFields = InviteUserSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
@@ -266,9 +269,9 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
   }
   
   try {
-    const usersInOrgRef = collection(adminDb, "organizations", organizationId, "users");
-    const userSearchQuery = query(usersInOrgRef, where("email", "==", email));
-    const existingUserSnap = await getDocs(userSearchQuery);
+    const usersInOrgRef = adminDb.collection("organizations").doc(organizationId).collection("users");
+    const userSearchQuery = usersInOrgRef.where("email", "==", email);
+    const existingUserSnap = await userSearchQuery.get();
 
     if (!existingUserSnap.empty) {
       return {
@@ -279,7 +282,7 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
     }
     
     // We are not creating an authenticated user here, just a profile document.
-    await addDoc(usersInOrgRef, {
+    await usersInOrgRef.add({
       displayName: displayName,
       email: email,
       photoURL: null,

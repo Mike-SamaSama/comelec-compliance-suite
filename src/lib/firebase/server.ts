@@ -1,39 +1,52 @@
 
-import "dotenv/config";
+'use server';
+
 import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth, Auth } from 'firebase-admin/auth';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 // This is a server-only file.
 
-// Ensure the environment variable is read.
-const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+// This structure allows us to lazy-initialize the admin app, ensuring that
+// environment variables are loaded before the SDK is initialized.
+let adminApp: App | undefined;
+let adminAuth: Auth | undefined;
+let adminDb: Firestore | undefined;
 
-if (!serviceAccountString) {
-    throw new Error("FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set or is empty.");
+function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
+  if (adminApp && adminAuth && adminDb) {
+    return { app: adminApp, auth: adminAuth, db: adminDb };
+  }
+
+  const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!serviceAccountString) {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set or is empty.');
+  }
+
+  let serviceAccount;
+  try {
+    serviceAccount = JSON.parse(serviceAccountString);
+  } catch (e) {
+    console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it's a valid JSON string.", e);
+    throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_KEY format.');
+  }
+
+  const existingApp = getApps().find((app) => app.name === 'admin');
+  adminApp =
+    existingApp ||
+    initializeApp(
+      {
+        credential: cert(serviceAccount),
+      },
+      'admin'
+    );
+
+  adminAuth = getAuth(adminApp);
+  adminDb = getFirestore(adminApp);
+
+  return { app: adminApp, auth: adminAuth, db: adminDb };
 }
 
-let serviceAccount;
-try {
-  serviceAccount = JSON.parse(serviceAccountString);
-} catch (e) {
-  console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it's a valid JSON string.", e);
-  throw new Error("Invalid FIREBASE_SERVICE_ACCOUNT_KEY format.");
-}
-
-
-const adminApp =
-  getApps().find((app) => app.name === 'admin') ||
-  initializeApp(
-    {
-      credential: cert(serviceAccount),
-    },
-    'admin'
-  );
-
-
-export const adminAuth = getAuth(adminApp);
-export const adminDb = getFirestore(adminApp);
 
 /**
  * Checks if a user is a Tenant Administrator for a specific organization.
@@ -44,7 +57,8 @@ export const adminDb = getFirestore(adminApp);
  */
 export async function getIsTenantAdmin(userId: string, organizationId: string): Promise<boolean> {
   try {
-    const userDocRef = adminDb.collection('organizations').doc(organizationId).collection('users').doc(userId);
+    const { db } = getAdminApp();
+    const userDocRef = db.collection('organizations').doc(organizationId).collection('users').doc(userId);
     const userDoc = await userDocRef.get();
 
     if (!userDoc.exists) {
@@ -61,3 +75,6 @@ export async function getIsTenantAdmin(userId: string, organizationId: string): 
     return false; // Fail securely.
   }
 }
+
+// Export the lazy-loading function instead of the initialized instances
+export { getAdminApp };

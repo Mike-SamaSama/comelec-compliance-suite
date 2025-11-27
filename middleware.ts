@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from './src/lib/firebase/server';
+import { getAdminApp } from './src/lib/firebase/server';
 
 // This file MUST be in the root of the project.
 // This line is CRITICAL. It tells Next.js to run this middleware in a Node.js environment,
@@ -21,6 +21,8 @@ export async function middleware(request: NextRequest) {
   // 2. If there is a session cookie, try to verify it.
   if (session) {
     try {
+      // Lazily get the adminAuth instance
+      const { auth: adminAuth } = getAdminApp();
       // Verify the session cookie. `checkRevoked` is false for performance.
       await adminAuth.verifySessionCookie(session, false);
       

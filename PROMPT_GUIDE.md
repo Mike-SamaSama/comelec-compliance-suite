@@ -109,7 +109,13 @@ This phase builds the tools for Tenant Admins to manage their own organization.
 *   **Example Prompt:** *"Let's build the tools for Tenant Admins in **Phase 4**. Update the 'User Management' page so that a Tenant Admin can see and manage only the users within their own organization. Implement the user invitation flow."*
 
 **Phase 5: Platform Admin Functionality**
-The final phase is to build the global oversight tools for the platform owner.
+This phase is to build the global oversight tools for the platform owner.
 
 *   **Objective:** Create the global dashboard and management pages for Platform Admins.
-*   **Example Prompt:** *"Finally, please implement **Phase 5: Platform Admin Functionality**. Create the global dashboard that lists all tenant organizations. Ensure the pages for managing the Master Checklist, Document Templates, and Deadlines are now exclusively accessible to Platform Admins and that their changes apply globally."*
+*   **Example Prompt:** *"Next, please implement **Phase 5: Platform Admin Functionality**. Create the global dashboard that lists all tenant organizations. Ensure the pages for managing the Master Checklist, Document Templates, and Deadlines are now exclusively accessible to Platform Admins and that their changes apply globally."*
+
+**Phase 6: AI Legal Assistant (RAG Implementation)**
+This phase upgrades the AI Legal Assistant from a simple Q&A bot to a powerful RAG system.
+
+*   **Objective:** Re-implement the AI Legal Assistant using a Retrieval-Augmented Generation architecture. This will involve setting up a vector database (like Vertex AI Search), creating a pipeline to embed documents into the vector store, and updating the Genkit flow to perform a similarity search to retrieve relevant context before generating an answer.
+*   **Example Prompt:** *"Let's upgrade the AI Legal Assistant in **Phase 6**. Convert the `askLegalQuestionFlow` into a full RAG system. Set up the necessary infrastructure, including a Genkit tool to query a vector database like Vertex AI Search. The flow should now be able to answer questions based on the specific documents you provide it."*

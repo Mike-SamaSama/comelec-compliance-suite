@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp } from './src/lib/firebase/server';
 
@@ -23,8 +22,8 @@ export async function middleware(request: NextRequest) {
     try {
       // Lazily get the adminAuth instance
       const { auth: adminAuth } = getAdminApp();
-      // Verify the session cookie. `checkRevoked` is false for performance.
-      await adminAuth.verifySessionCookie(session, false);
+      // Verify the session cookie. `checkRevoked` is true for security.
+      await adminAuth.verifySessionCookie(session, true);
       
       // If the user is authenticated and tries to access login/signup, redirect to dashboard.
       if (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup')) {

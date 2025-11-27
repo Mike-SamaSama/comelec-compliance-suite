@@ -143,7 +143,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     let errorMessage = "An unexpected error occurred during signup.";
     const errors: SignUpState['errors'] = {};
 
-    if (error.code === 'auth/email-already-exists') {
+    if (error.code === 'auth/email-already-exists' || error.code === 'auth/email-already-in-use') {
       errorMessage = "This email address is already in use. Please login instead.";
       errors.email = [errorMessage];
     } else {

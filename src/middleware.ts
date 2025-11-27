@@ -2,8 +2,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 // This file is processed by the edge runtime, so we cannot use Node.js modules.
-// We only check for the presence of the session cookie and handle redirects.
-// The actual verification of the cookie happens on API routes or server components.
+// It only checks for the presence of the session cookie and handles redirects.
+// The actual verification of the cookie happens on API routes or within layouts.
 
 export async function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('session')?.value;
@@ -35,8 +35,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // If a session cookie exists, let the request proceed. 
-  // The actual verification of the session will be handled by page/layout components
-  // or on the API routes that are called.
+  // The actual verification of the session will be handled by client-side logic in the AuthProvider
+  // or on protected API routes that are called.
   return NextResponse.next();
 }
 

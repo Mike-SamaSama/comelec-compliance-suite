@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, Query, DocumentData, QuerySnapshot, FirestoreError } from 'firebase/firestore';
+import { collection, query, onSnapshot, DocumentData, QuerySnapshot, FirestoreError } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 
 interface UseCollectionReturn<T> {
@@ -13,8 +13,8 @@ interface UseCollectionReturn<T> {
 
 /**
  * A stable, best-practice hook for fetching a Firestore collection in real-time.
- * It uses a path string to create a stable query, preventing re-renders.
- * @param path The path to the collection (e.g., 'users' or 'organizations/abc/documents').
+ * It uses a path string to create a stable query, preventing re-renders and infinite loops.
+ * @param path The path to the collection (e.g., 'users' or 'organizations/abc/documents'). Must not contain an odd number of segments.
  * @returns An object with the collection data, loading state, and error.
  */
 export function useCollection<T extends DocumentData>(
@@ -26,7 +26,8 @@ export function useCollection<T extends DocumentData>(
 
   useEffect(() => {
     // If the path is null or undefined, we can't fetch anything.
-    // Set loading to false and return early.
+    // Set loading to false and return early. This happens on initial render
+    // before the user's profile (and organizationId) is loaded.
     if (!path) {
       setData(null);
       setLoading(false);
@@ -40,7 +41,7 @@ export function useCollection<T extends DocumentData>(
 
     const unsubscribe = onSnapshot(
       collectionQuery,
-      (snapshot: QuerySnapshot<T>) => {
+      (snapshot: QuerySnapshot) => {
         const docs = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as T),
@@ -59,7 +60,7 @@ export function useCollection<T extends DocumentData>(
 
     // Cleanup subscription on unmount or if the path changes.
     return () => unsubscribe();
-  }, [path]); // The effect re-runs only when the path string changes.
+  }, [path]); // The effect re-runs only when the path string itself changes.
 
   return { data, loading, error };
 }

@@ -26,7 +26,7 @@ function getInitials(name: string | null | undefined) {
 export default function UsersPage() {
   const { profile, isTenantAdmin } = useAuth();
   
-  // Construct a stable path string for the hook. This is the correct pattern.
+  // Construct a stable path string. The hook will only re-run when this path changes.
   const usersPath = profile ? `organizations/${profile.organizationId}/users` : null;
   const { data: users, loading } = useCollection<OrgUser>(usersPath);
 

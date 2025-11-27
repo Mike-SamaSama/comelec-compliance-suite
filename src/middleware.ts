@@ -28,11 +28,14 @@ export async function middleware(request: NextRequest) {
 
   // If it's a protected path and there's no session cookie, redirect to login.
   if (!sessionCookie) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    // To prevent a redirect loop, we first check if we're already on the login page.
+    if (request.nextUrl.pathname !== '/login') {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
   }
 
   // If a session cookie exists, let the request proceed. 
-  // The actual verification of the session will be handled by the page or layout components
+  // The actual verification of the session will be handled by page/layout components
   // or on the API routes that are called.
   return NextResponse.next();
 }

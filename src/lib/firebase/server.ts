@@ -1,8 +1,11 @@
 
-import 'dotenv/config';
+import { config } from 'dotenv';
 import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+
+// Explicitly call config() to load environment variables.
+config();
 
 // This is a server-only file.
 

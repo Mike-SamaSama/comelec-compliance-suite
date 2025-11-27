@@ -1,5 +1,5 @@
 
-import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert, ServiceAccount } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
@@ -16,18 +16,19 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
     return { app: adminApp, auth: adminAuth, db: adminDb };
   }
 
-  const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!serviceAccountString) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set or is empty.');
+  // Construct the service account object from individual environment variables.
+  // This is more robust than parsing a JSON string.
+  const serviceAccount: ServiceAccount = {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    // The private key needs to have its newlines properly escaped when stored in an env var.
+    privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+  };
+
+  if (!serviceAccount.projectId || !serviceAccount.clientEmail || !serviceAccount.privateKey) {
+      throw new Error('Firebase service account environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY) are not set or are empty.');
   }
 
-  let serviceAccount;
-  try {
-    serviceAccount = JSON.parse(serviceAccountString);
-  } catch (e) {
-    console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it's a valid JSON string.", e);
-    throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_KEY format.');
-  }
 
   const existingApp = getApps().find((app) => app.name === 'admin');
   

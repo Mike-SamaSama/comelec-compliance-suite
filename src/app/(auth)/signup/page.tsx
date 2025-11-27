@@ -76,7 +76,7 @@ export default function SignupPage() {
           {state?.errors?.password && <p className="text-sm font-medium text-destructive">{state.errors.password[0]}</p>}
         </div>
         <div className="flex items-start space-x-2 pt-2">
-          <Checkbox id="consent" name="consent" defaultChecked={state?.fields?.consent} />
+          <Checkbox id="consent" name="consent" defaultChecked={!!state?.fields?.consent} />
           <div className="grid gap-1.5 leading-none">
             <label htmlFor="consent" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               I agree to the terms and privacy policy.

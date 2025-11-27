@@ -20,20 +20,23 @@ const SignUpSchema = z.object({
   organizationName: z.string().min(2, { message: "Organization name must be at least 2 characters." }),
   email: emailSchema,
   password: passwordSchema,
-  consent: z.literal('on', {
+  consent: z.literal("on", {
     error_map: () => ({ message: "You must agree to the terms and privacy policy." }),
-  })
+  }),
 });
 
 export async function signUpWithOrganization(prevState: any, formData: FormData) {
   const validatedFields = SignUpSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
+    const fields = Object.fromEntries(formData.entries());
+    delete fields.password; // Always remove password for security
+    
     return {
       type: "error" as const,
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Please correct the errors below.",
-      fields: Object.fromEntries(formData.entries())
+      fields: fields,
     };
   }
 
@@ -90,11 +93,14 @@ export async function signUpWithOrganization(prevState: any, formData: FormData)
         fieldErrors.email = [errorMessage];
     }
     
+    const fields = Object.fromEntries(formData.entries());
+    delete fields.password;
+    
     return { 
       type: "error" as const, 
-      message: "Signup Failed",
+      message: errorMessage,
       errors: fieldErrors,
-      fields: Object.fromEntries(formData.entries()) 
+      fields: fields,
     };
   }
 }

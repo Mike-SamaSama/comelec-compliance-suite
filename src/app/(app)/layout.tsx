@@ -9,8 +9,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   
   // The AuthProvider shows a global loading skeleton, so we can wait for the
   // user state to be resolved before rendering the application shell.
-  // Returning null here prevents the race condition that was causing the
-  // redirect loop.
+  // Returning null here prevents a flash of unauthenticated content and avoids
+  // race conditions with redirects.
   if (loading || !user) {
     return null;
   }

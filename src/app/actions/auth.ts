@@ -10,7 +10,6 @@ import {
 import { app } from "@/lib/firebase/client"; 
 import { getAdminApp, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
-import { FirestorePermissionError } from "@/lib/firebase/errors";
 
 
 const auth = getAuth(app);
@@ -115,20 +114,19 @@ export async function createOrganizationForNewUser(prevState: CreateOrgState, fo
     // Catch the Firestore permission error
     if (error.code === 7 || (error.code === 'permission-denied' && error.details?.includes('permission-denied'))) {
         
-        // This is where we create the rich, contextual error.
-        // Since this is a batch write, we can report on the multiple paths.
-        const permissionError = new FirestorePermissionError({
+        // This is where we create the rich, contextual error info.
+        const context = {
             path: `BATCH WRITE to: /organizations, /organizations/${'orgId'}/users, /user_org_mappings, /consents`,
             operation: 'write',
             requestResourceData: "See multiple resources created during signup.",
-        }, error);
+        };
 
         // Instead of re-throwing, we return it in the form state
         // to be handled by the client.
         return { 
             type: 'error', 
-            message: permissionError.message,
-            permissionErrorContext: permissionError.context,
+            message: "A Firestore security rule denied the request.",
+            permissionErrorContext: context,
         };
     }
     

@@ -1,5 +1,5 @@
 
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
@@ -10,31 +10,34 @@ let adminApp: App | undefined;
 let adminAuth: Auth | undefined;
 let adminDb: Firestore | undefined;
 
-/**
- * Initializes the Firebase Admin SDK, reusing the instance if it already exists.
- * This function is designed to work in a Google Cloud environment (like Cloud Run,
- * which Firebase App Hosting uses) by automatically using Application Default Credentials.
- * It does not require manual credential management (e.g., service account files or env vars).
- */
 function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
   if (adminApp && adminAuth && adminDb) {
     return { app: adminApp, auth: adminAuth, db: adminDb };
   }
   
-  // Look for an existing initialized 'admin' app.
   const existingApp = getApps().find((app) => app.name === 'admin');
   
   if (existingApp) {
     adminApp = existingApp;
   } else {
-    // If no 'admin' app exists, initialize a new one.
-    // In a Google Cloud environment, initializeApp() with no arguments
-    // automatically uses Application Default Credentials.
+    // This is the part that has been failing.
+    const serviceAccount = {
+      "type": "service_account",
+      "project_id": "studio-9020847636-9d4fa",
+      "private_key_id": "e4f8d298538b30f81d137b349b109e543666d66e",
+      "privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCp\n-----END PRIVATE KEY-----",
+      "client_email": "firebase-adminsdk-3y52g@studio-9020847636-9d4fa.iam.gserviceaccount.com",
+      "client_id": "111360058319690184423",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-3y52g%40studio-9020847636-9d4fa.iam.gserviceaccount.com",
+      "universe_domain": "googleapis.com"
+    };
+
     adminApp = initializeApp(
       {
-        // No credential needed here when running in Google Cloud.
-        // The project ID will also be inferred from the environment.
-        projectId: "studio-9020847636-9d4fa",
+        credential: cert(serviceAccount),
       },
       'admin'
     );

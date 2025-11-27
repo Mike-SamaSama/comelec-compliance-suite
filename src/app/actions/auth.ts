@@ -20,8 +20,8 @@ const SignUpSchema = z.object({
   organizationName: z.string().min(2, { message: "Organization name must be at least 2 characters." }),
   email: emailSchema,
   password: passwordSchema,
-  consent: z.literal("on", {
-    errorMap: () => ({ message: "You must agree to the terms and privacy policy." }),
+  consent: z.string().refine(val => val === 'on', {
+    message: "You must agree to the terms and privacy policy.",
   }),
 });
 
@@ -37,10 +37,10 @@ export type SignUpState = {
     _form?: string[];
   };
   fields?: {
-    name?: string;
-    organizationName?: string;
-    email?: string;
-    consent?: string;
+    name: string;
+    organizationName: string;
+    email: string;
+    consent: string;
   };
 };
 

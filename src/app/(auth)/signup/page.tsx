@@ -1,10 +1,9 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import { signUpWithOrganization, type SignUpState } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +54,7 @@ export default function SignupPage() {
       </div>
 
       <form action={formAction} className="space-y-4">
-        {state?.type === 'error' && state.message && !state.errors?.email && !state.errors?.name && !state.errors?.organizationName && !state.errors?.password && !state.errors?.consent && (
+        {state?.type === 'error' && state.message && !state.errors && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Signup Failed</AlertTitle>
@@ -83,7 +82,7 @@ export default function SignupPage() {
           {state?.errors?.password && <p className="text-sm font-medium text-destructive">{state.errors.password[0]}</p>}
         </div>
         <div className="flex items-start space-x-2 pt-2">
-          <Checkbox id="consent" name="consent" defaultChecked={state?.fields?.consent === 'on'} />
+          <Checkbox id="consent" name="consent" defaultChecked={!!state?.fields?.consent} />
           <div className="grid gap-1.5 leading-none">
             <label htmlFor="consent" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               I agree to the terms and privacy policy.

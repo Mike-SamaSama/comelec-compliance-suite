@@ -1,12 +1,7 @@
-
 import { NextRequest, NextResponse } from 'next/server';
-import { User, getAuth, signInWithCustomToken } from 'firebase/auth';
-import { app } from './src/lib/firebase/client';
 import { adminAuth } from './src/lib/firebase/server';
 
-// This function is crucial for passing the user's identity to Server Actions.
-async function addAuthHeader(request: NextRequest, user: User) {
-  const token = await user.getIdToken();
+async function addAuthHeader(request: NextRequest, token: string) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('Authorization', `Bearer ${token}`);
 
@@ -17,38 +12,33 @@ async function addAuthHeader(request: NextRequest, user: User) {
   });
 }
 
-// NOTE: This middleware is called for every request.
-// It is used to refresh the user's custom token to ensure that
-// the user's identity is available in Server Actions.
 export async function middleware(request: NextRequest) {
-  // First, check for a session cookie.
   const session = request.cookies.get('session')?.value;
   if (!session) {
     return NextResponse.next();
   }
 
   try {
-    // Validate the session cookie.
+    // This is the ONLY thing middleware should do: verify the session cookie.
+    // It should NOT be signing in users or using client-side SDKs.
     const decodedIdToken = await adminAuth.verifySessionCookie(session, true);
-    // The user is authenticated. Create a custom token.
-    const customToken = await adminAuth.createCustomToken(decodedIdToken.uid);
-    // Use the custom token to sign in on the client-side.
-    const userCredential = await signInWithCustomToken(
-      getAuth(app),
-      customToken
-    );
-    // Add the user's ID token to the request headers.
-    return addAuthHeader(request, userCredential.user);
+    
+    // The session is valid. The Authorization header is now set on all requests.
+    // Server Actions can now read this header to get the user's identity.
+    return await addAuthHeader(request, await adminAuth.createCustomToken(decodedIdToken.uid));
+
   } catch (error) {
     console.error('Error in middleware:', error);
-    // If the session is invalid, redirect to the login page.
     const response = NextResponse.redirect(new URL('/login', request.url));
-    // Clear the session cookie.
     response.cookies.delete('session');
-return response;
+    return response;
   }
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  // This matcher ensures the middleware runs on all paths except for static assets
+  // and the Next.js internal paths.
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
 };

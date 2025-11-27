@@ -10,11 +10,11 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { doc, writeBatch, serverTimestamp, collection, getDocs, query, where, limit, runTransaction } from "firebase/firestore";
-import { app, db } from "@/lib/firebase/client"; // db is needed for transactions initiated on server
+import { app } from "@/lib/firebase/client"; 
 import { adminAuth, adminDb, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
 
-// This needs to be a separate instance for server actions that use client auth
+
 const auth = getAuth(app);
 
 const emailSchema = z.string().email({ message: "Invalid email address." });
@@ -74,7 +74,6 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
   
   let userCredential;
   try {
-    // Step 1: Create the Firebase Auth user first. If this fails, we stop.
     userCredential = await createUserWithEmailAndPassword(auth, email, password);
   } catch (error: any) {
      let errorMessage = "An unexpected error occurred during signup.";
@@ -93,7 +92,6 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
   await updateProfile(user, { displayName: displayName });
 
   try {
-    // Step 2: Use a transaction to create the organization and user profile
     await runTransaction(adminDb, async (transaction) => {
       const orgsRef = collection(adminDb, "organizations");
       const orgQuery = query(orgsRef, where("name", "==", organizationName));
@@ -136,8 +134,6 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     });
 
   } catch (error: any) {
-    // If the transaction fails, we should ideally delete the auth user
-    // to allow them to try again. This is a "rollback".
     await adminAuth.deleteUser(user.uid);
     
     return { 
@@ -148,11 +144,8 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     };
   }
   
-  // If we get here, both auth user and DB records were created successfully.
-  // We need to sign the user in to create a session cookie.
   await signInWithEmailAndPassword(auth, email, password);
 
-  // Redirect to dashboard after successful login and data creation
   return redirect('/dashboard');
 }
 
@@ -219,17 +212,21 @@ export type InviteUserState = {
   };
 };
 
-async function getUserIdFromHeader(): Promise<string | null> {
+async function getCallingUserId(): Promise<string | null> {
     const authHeader = headers().get('Authorization');
     if (authHeader) {
       const token = authHeader.split('Bearer ')[1];
       if (token) {
         try {
-          const decodedToken = await adminAuth.verifyIdToken(token);
+          // Instead of verifying the ID token, which might be expired,
+          // we use the custom token to get the user's UID.
+          // This is more robust as middleware is responsible for refreshing.
+          const decodedToken = await adminAuth.verifySessionCookie(token);
           return decodedToken.uid;
         } catch (error) {
-          console.error("Error verifying ID token:", error);
-          return null;
+          // A more robust way is needed if not using session cookies
+           const customTokenUser = await adminAuth.verifyIdToken(token);
+           return customTokenUser.uid;
         }
       }
     }
@@ -248,10 +245,24 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
   }
 
   const { displayName, email, organizationId } = validatedFields.data;
-  const callingUserId = await getUserIdFromHeader();
+  
+  let callingUserId: string | null = null;
+  try {
+    const authHeader = headers().get('Authorization');
+    if (!authHeader) throw new Error("Missing Authorization header.");
+    const token = authHeader.split('Bearer ')[1];
+    if (!token) throw new Error("Invalid token format.");
+    // This is the correct way to get the user ID on the server from the middleware token.
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    callingUserId = decodedToken.uid;
+  } catch(e) {
+     console.error("Auth error in inviteUserToOrganization", e);
+     return { type: "error", message: "Authentication required to perform this action. Please refresh and try again." };
+  }
+
 
   if (!callingUserId) {
-    return { type: "error", message: "Authentication required to perform this action." };
+    return { type: "error", message: "Authentication failed. Could not identify the user." };
   }
 
   const isCallerAdmin = await getIsTenantAdmin(callingUserId, organizationId);
@@ -260,8 +271,10 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
   }
   
   try {
+    // This is a privileged, server-only operation. We must use adminDb.
+    const usersInOrgRef = collection(adminDb, "organizations", organizationId, "users");
     const userSearchQuery = query(
-      collection(adminDb, "organizations", organizationId, "users"),
+      usersInOrgRef,
       where("email", "==", email),
       limit(1)
     );
@@ -276,7 +289,7 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
     }
 
     const batch = adminDb.batch();
-    const newUserRef = doc(collection(adminDb, "organizations", organizationId, "users"));
+    const newUserRef = doc(usersInOrgRef);
     
     batch.set(newUserRef, {
       displayName: displayName,

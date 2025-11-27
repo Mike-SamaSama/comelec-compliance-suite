@@ -34,6 +34,7 @@ export type SignUpState = {
     email?: string[];
     password?: string[];
     consent?: string[];
+    _form?: string[];
   };
   fields?: {
     name?: string;
@@ -110,17 +111,19 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     return { type: "success", message: "Account created successfully! Redirecting..." };
   } catch (error: any) {
     let errorMessage = "An unexpected error occurred during signup.";
-    const fieldErrors: SignUpState['errors'] = {};
+    const errors: SignUpState['errors'] = {};
 
     if (error.code === "auth/email-already-in-use") {
-        errorMessage = "This email address is already in use by another account.";
-        fieldErrors.email = [errorMessage];
+        errors.email = ["This email address is already in use by another account."];
+        errorMessage = "Please correct the errors below."
+    } else {
+        errors._form = [errorMessage];
     }
     
     return { 
       type: "error", 
       message: errorMessage,
-      errors: fieldErrors,
+      errors: errors,
       fields: fields,
     };
   }

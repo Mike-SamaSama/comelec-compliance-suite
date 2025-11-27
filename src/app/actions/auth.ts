@@ -6,11 +6,13 @@ import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  updateProfile,
 } from "firebase/auth";
-import { doc, setDoc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { doc, writeBatch, serverTimestamp, getDoc } from "firebase/firestore";
 import { app, db } from "@/lib/firebase/client"; // Use client for auth on server
 import { redirect } from "next/navigation";
 
+// This needs to be a separate instance for server actions
 const auth = getAuth(app);
 
 const emailSchema = z.string().email({ message: "Invalid email address." });
@@ -72,10 +74,15 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
+    // We also update the auth user's profile
+    await updateProfile(user, { displayName: name });
+
     const batch = writeBatch(db);
 
-    // 1. Create the new organization (using user.uid as org id for simplicity)
-    const orgRef = doc(db, "organizations", user.uid); 
+    // 1. Create the new organization
+    // For this SaaS, we can use the new user's UID as the organization ID for simplicity and guaranteed uniqueness.
+    const orgId = user.uid;
+    const orgRef = doc(db, "organizations", orgId); 
     batch.set(orgRef, {
       name: organizationName,
       ownerId: user.uid,
@@ -83,7 +90,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     });
     
     // 2. Create the user's profile within the organization subcollection
-    const userInOrgRef = doc(db, "organizations", user.uid, "users", user.uid);
+    const userInOrgRef = doc(db, "organizations", orgId, "users", user.uid);
     batch.set(userInOrgRef, {
       displayName: name,
       email: user.email,
@@ -95,7 +102,7 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     // 3. Create a mapping in a root collection for easy organization lookup on login
     const userOrgMappingRef = doc(db, 'user_org_mappings', user.uid);
     batch.set(userOrgMappingRef, {
-        organizationId: user.uid, // The new org ID is the user's UID
+        organizationId: orgId,
     });
 
     // 4. Log consent
@@ -116,12 +123,6 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     if (error.code === "auth/email-already-in-use") {
         errors.email = ["This email address is already in use by another account."];
         errorMessage = "This email address is already in use. Please login instead."
-    } else if (error.code === 'auth/api-key-not-valid') {
-        errorMessage = "The Firebase API key is not valid. Please check your configuration.";
-        errors._form = [errorMessage];
-    } else if (error.code === 'auth/configuration-not-found') {
-      errorMessage = "Firebase Authentication is not configured for this project. Please enable Email/Password sign-in in the Firebase console.";
-      errors._form = [errorMessage];
     } else {
         errorMessage = error.message || errorMessage;
         errors._form = [errorMessage];

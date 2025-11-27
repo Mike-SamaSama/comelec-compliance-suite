@@ -17,6 +17,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [user, loading, router]);
 
   if (loading || !user) {
+    // The AuthProvider will show a loading screen, so we can return null here
+    // to prevent premature rendering of the app shell.
     return null;
   }
 

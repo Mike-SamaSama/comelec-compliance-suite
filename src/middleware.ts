@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
 
   // 1. If there's no session cookie and the user is trying to access a protected page,
   //    redirect them to the login page.
-  if (!session && request.nextUrl.pathname.startsWith('/dashboard')) {
+  if (!session && request.nextUrl.pathname.startsWith('/app')) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);

@@ -1,4 +1,6 @@
+
 import { NextResponse, type NextRequest } from 'next/server';
+import { adminAuth } from '@/lib/firebase/server';
 
 export async function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('session')?.value;
@@ -14,33 +16,37 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/favicon.ico') ||
     request.nextUrl.pathname.startsWith('/api/'); // Exclude API routes from auth checks here
 
-  // If there's no session cookie
-  if (!sessionCookie) {
-    // If the path is protected, redirect to login
-    if (!isPublicPath) {
-      return NextResponse.redirect(new URL('/login', request.url));
+  if (isPublicPath) {
+    // If user is authenticated and tries to go to login/signup, redirect to dashboard
+    if (sessionCookie) {
+      try {
+        await adminAuth.verifySessionCookie(sessionCookie, true);
+        if (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup') {
+          return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+      } catch (error) {
+        // Invalid cookie, let them proceed to public path but clear the cookie
+        const response = NextResponse.next();
+        response.cookies.delete('session');
+        return response;
+      }
     }
-    // Otherwise, allow access to public paths
     return NextResponse.next();
   }
 
-  // If there is a session cookie, verify it by calling our new API route
-  const response = await fetch(new URL('/api/auth/session', request.url), {
-    headers: {
-      Cookie: `session=${sessionCookie}`,
-    },
-  });
+  // If there's no session cookie and it's a protected path, redirect to login
+  if (!sessionCookie) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 
-  // If the session is not valid, redirect to login
-  if (response.status !== 200) {
+  // If there is a session cookie, verify it
+  try {
+    await adminAuth.verifySessionCookie(sessionCookie, true /** checkRevoked */);
+  } catch (error) {
+    // Session cookie is invalid. Redirect to login and clear the bad cookie.
     const response = NextResponse.redirect(new URL('/login', request.url));
     response.cookies.delete('session');
     return response;
-  }
-  
-  // If user is authenticated and tries to go to login/signup, redirect to dashboard
-  if (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   // Allow the request to proceed
@@ -59,6 +65,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     *
+     * We are NOT excluding /api/ here because we want the middleware to run
+     * for most API routes, except for specific public ones handled above.
      */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],

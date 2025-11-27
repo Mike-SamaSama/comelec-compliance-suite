@@ -10,9 +10,7 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 // It initializes only once when the server module is first loaded.
 const adminApp: App = getApps().length
   ? getApps()[0]!
-  : initializeApp({
-      credential: applicationDefault(),
-    });
+  : initializeApp();
 
 const adminAuth: Auth = getAuth(adminApp);
 const adminDb: Firestore = getFirestore(adminApp);

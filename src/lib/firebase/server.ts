@@ -16,12 +16,13 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
     return { app: adminApp, auth: adminAuth, db: adminDb };
   }
   
-  // NOTE: In a production environment, use environment variables or a secret manager.
-  // For this development environment, we are hardcoding the credentials to ensure stability.
+  // NOTE: For this development environment, we are hardcoding the credentials to ensure stability.
+  // In a production environment, use a secure method like environment variables or a secret manager.
   const serviceAccount: ServiceAccount = {
       "projectId": "studio-9020847636-9d4fa",
       "clientEmail": "firebase-adminsdk-p1s7n@studio-9020847636-9d4fa.iam.gserviceaccount.com",
-      "privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCp6E+hA9B/b+vC\n8TRmC0QW4sCo1ZflL3QyC+W4t4Ym5Z1Tz5vX6Xw3X6N1z5l9k1r/b8F/d8v/x+D\n/A/E/G/I/K/M/O/Q/S/U/W/Y/a/c/e/g/i/k/m/o/q/s/u/w/y/z/1/2/3/4/5/6\n/7/8/9/+/=/A/B/C/D/E/F/G/H/I/J/K/L/M/N/O/P/Q/R/S/T/U/V/W/X/Y/Z/a\n/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z/0/1/2/3/4/5/6\n/7/8/9/+/=/aa/bb/cc/dd/ee/ff/gg/hh/ii/jj/kk/ll/mm/nn/oo/pp/qq/rr\n/ss/tt/uu/vv/ww/xx/yy/zz/AA/BB/CC/DD/EE/FF/GG/HH/II/JJ/KK/LL/MM/NN\n/OO/PP/QQ/RR/SS/TT/UU/VV/WW/XX/YY/ZZ/ab/cd/ef/gh/ij/kl/mn/op/qr\n/st/uv/wx/yz/12/34/56/78/90/Ab/Cd/Ef/Gh/Ij/Kl/Mn/Op/Qr/St/Uv/Wx\n/Yz/aB/cD/eF/gH/iJ/kL/mN/oP/qR/sT/uV/wX/yZ/1A/2B/3C/4D/5E/6F/7G\n/8H/9I/+J/K/L/M/N/O/P/Q/R/S/T/U/V/W/X/Y/Z==\n-----END PRIVATE KEY-----\n"
+      // The private key must have its newlines properly escaped for the cert() function.
+      "privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCp6E+hA9B/b+vC\n8TRmC0QW4sCo1ZflL3QyC+W4t4Ym5Z1Tz5vX6Xw3X6N1z5l9k1r/b8F/d8v/x+D\n/A/E/G/I/K/M/O/Q/S/U/W/Y/a/c/e/g/i/k/m/o/q/s/u/w/y/z/1/2/3/4/5/6\n/7/8/9/+/=/A/B/C/D/E/F/G/H/I/J/K/L/M/N/O/P/Q/R/S/T/U/V/W/X/Y/Z/a\n/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z/0/1/2/3/4/5/6\n/7/8/9/+/=/aa/bb/cc/dd/ee/ff/gg/hh/ii/jj/kk/ll/mm/nn/oo/pp/qq/rr\n/ss/tt/uu/vv/ww/xx/yy/zz/AA/BB/CC/DD/EE/FF/GG/HH/II/JJ/KK/LL/MM/NN\n/OO/PP/QQ/RR/SS/TT/UU/VV/WW/XX/YY/ZZ/ab/cd/ef/gh/ij/kl/mn/op/qr\n/st/uv/wx/yz/12/34/56/78/90/Ab/Cd/Ef/Gh/Ij/Kl/Mn/Op/Qr/St/Uv/Wx\n/Yz/aB/cD/eF/gH/iJ/kL/mN/oP/qR/sT/uV/wX/yZ/1A/2B/3C/4D/5E/6F/7G\n/8H/9I/+J/K/L/M/N/O/P/Q/R/S/T/U/V/W/X/Y/Z==\n-----END PRIVATE KEY-----\n".replace(/\\n/g, '\n')
   };
 
   const existingApp = getApps().find((app) => app.name === 'admin');

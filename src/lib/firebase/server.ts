@@ -1,7 +1,10 @@
 
+"use server";
+
 import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { FIREBASE_CONFIG } from './config';
 
 // This is a server-only file.
 
@@ -20,10 +23,10 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
   if (existingApp) {
     adminApp = existingApp;
   } else {
-    // Use Application Default Credentials.
-    // This is the correct way to initialize in a managed Google Cloud environment.
-    // The SDK will automatically find the service account credentials.
-    adminApp = initializeApp(undefined, 'admin');
+    // Use Application Default Credentials but specify the correct projectId.
+    // This is the correct way to initialize in a managed Google Cloud environment
+    // when the client and server projects might differ.
+    adminApp = initializeApp({ projectId: FIREBASE_CONFIG.projectId }, 'admin');
   }
 
   adminAuth = getAuth(adminApp);

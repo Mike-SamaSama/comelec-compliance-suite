@@ -4,23 +4,30 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // --- Helper Functions ---
+
+    // Is the user authenticated?
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    // Does the user have a document in the global platform_admins collection?
     function isPlatformAdmin() {
       return exists(/databases/$(database)/documents/platform_admins/$(request.auth.uid));
     }
     
+    // Does the user have a document in a specific organization's user collection?
     function isMemberOf(organizationId) {
       return exists(/databases/$(database)/documents/organizations/$(organizationId)/users/$(request.auth.uid));
     }
 
+    // Is the user a designated admin for a specific organization?
+    // This is more efficient as it uses a single get() instead of an exists() and a get().
     function isTenantAdminOf(organizationId) {
       let userDoc = get(/databases/$(database)/documents/organizations/$(organizationId)/users/$(request.auth.uid));
-      return isMemberOf(organizationId) && userDoc.data.isAdmin == true;
+      return userDoc.data.isAdmin == true;
     }
     
+    // Is the user the owner of the document they are trying to access?
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
@@ -74,10 +81,10 @@ service cloud.firestore {
     
     // Platform Admins:
     // - This collection is read-only from the client.
-    // - Granting/revoking admin access must be done server-side or manually in the console.
+    // - Granting/revoking admin access must be done server-side or manually in the console for security.
     match /platform_admins/{userId} {
       allow read: if isAuthenticated();
-      allow write: if false; // Managed server-side
+      allow write: if false;
     }
 
     // Consents:

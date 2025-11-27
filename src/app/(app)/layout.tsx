@@ -12,23 +12,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
+    // This effect now only handles redirecting away from login if a user is already logged in,
+    // which is not its primary responsibility but can be a safeguard.
+    // The main protection for routes is handled by the logic below.
     if (!loading && !user && pathname !== '/login') {
-      router.push('/login');
+       router.push('/login');
     }
   }, [user, loading, router, pathname]);
   
+  // The AuthProvider shows a global loading skeleton. 
+  // We wait for loading to be false before rendering anything.
   if (loading) {
-    // The AuthProvider shows a global loading skeleton, so we can wait for the
-    // user state to be resolved before rendering the application shell.
     return null;
   }
 
-  // Once loading is complete, if there is a user, render the AppShell.
+  // If loading is complete but there is no user, it means they need to log in.
+  // The useEffect above will handle the redirect. Returning null here prevents
+  // the app shell from flashing for unauthenticated users.
   if (!user) {
-    // It's possible to be in this state briefly before a redirect.
-    // Returning null prevents rendering the shell for an unauthenticated user.
     return null;
   }
 
+  // If loading is complete and we have a user, render the application shell.
   return <AppShell>{children}</AppShell>;
 }

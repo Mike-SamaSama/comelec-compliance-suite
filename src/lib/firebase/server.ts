@@ -1,37 +1,40 @@
 
-import { initializeApp, getApps, App, cert, ServiceAccount } from 'firebase-admin/app';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 // This is a server-only file.
 
-// This structure allows us to lazy-initialize the admin app, ensuring that
-// environment variables are loaded before the SDK is initialized.
+// This structure allows us to lazy-initialize the admin app.
 let adminApp: App | undefined;
 let adminAuth: Auth | undefined;
 let adminDb: Firestore | undefined;
 
+/**
+ * Initializes the Firebase Admin SDK, reusing the instance if it already exists.
+ * This function is designed to work in a Google Cloud environment (like Cloud Run,
+ * which Firebase App Hosting uses) by automatically using Application Default Credentials.
+ * It does not require manual credential management (e.g., service account files or env vars).
+ */
 function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
   if (adminApp && adminAuth && adminDb) {
     return { app: adminApp, auth: adminAuth, db: adminDb };
   }
   
-  // NOTE: For this development environment, we are hardcoding the credentials to ensure stability.
-  // In a production environment, use a secure method like environment variables or a secret manager.
-  const serviceAccount: ServiceAccount = {
-      "projectId": "studio-9020847636-9d4fa",
-      "clientEmail": "firebase-adminsdk-p1s7n@studio-9020847636-9d4fa.iam.gserviceaccount.com",
-      "privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCp6E+hA9B/b+vC\n8TRmC0QW4sCo1ZflL3QyC+W4t4Ym5Z1Tz5vX6Xw3X6N1z5l9k1r/b8F/d8v/x+D\n/A/E/G/I/K/M/O/Q/S/U/W/Y/a/c/e/g/i/k/m/o/q/s/u/w/y/z/1/2/3/4/5/6\n/7/8/9/+/=/A/B/C/D/E/F/G/H/I/J/K/L/M/N/O/P/Q/R/S/T/U/V/W/X/Y/Z/a\n/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z/0/1/2/3/4/5/6\n/7/8/9/+/=/aa/bb/cc/dd/ee/ff/gg/hh/ii/jj/kk/ll/mm/nn/oo/pp/qq/rr\n/ss/tt/uu/vv/ww/xx/yy/zz/AA/BB/CC/DD/EE/FF/GG/HH/II/JJ/KK/LL/MM/NN\n/OO/PP/QQ/RR/SS/TT/UU/VV/WW/XX/YY/ZZ/ab/cd/ef/gh/ij/kl/mn/op/qr\n/st/uv/wx/yz/12/34/56/78/90/Ab/Cd/Ef/Gh/Ij/Kl/Mn/Op/Qr/St/Uv/Wx\n/Yz/aB/cD/eF/gH/iJ/kL/mN/oP/qR/sT/uV/wX/yZ/1A/2B/3C/4D/5E/6F/7G\n/8H/9I/+J/K/L/M/N/O/P/Q/R/S/T/U/V/W/X/Y/Z==\n-----END PRIVATE KEY-----\n"
-  };
-
+  // Look for an existing initialized 'admin' app.
   const existingApp = getApps().find((app) => app.name === 'admin');
   
   if (existingApp) {
     adminApp = existingApp;
   } else {
+    // If no 'admin' app exists, initialize a new one.
+    // In a Google Cloud environment, initializeApp() with no arguments
+    // automatically uses Application Default Credentials.
     adminApp = initializeApp(
       {
-        credential: cert(serviceAccount),
+        // No credential needed here when running in Google Cloud.
+        // The project ID will also be inferred from the environment.
+        projectId: "studio-9020847636-9d4fa",
       },
       'admin'
     );
@@ -51,7 +54,7 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
  * @param organizationId The ID of the organization to check against.
  * @returns A promise that resolves to true if the user is an admin, false otherwise.
  */
-export async function getIsTenantAdmin(userId: string, organizationId: string): Promise<boolean> {
+export async function getIsTenantAdmin(userId: string, organizationId:string): Promise<boolean> {
   try {
     const { db } = getAdminApp();
     const userDocRef = db.collection('organizations').doc(organizationId).collection('users').doc(userId);
@@ -64,7 +67,6 @@ export async function getIsTenantAdmin(userId: string, organizationId: string): 
 
     // Check if the isAdmin flag is explicitly true.
     const isAdmin = userDoc.data()?.isAdmin === true;
-    console.log(`User ${userId} in org ${organizationId} admin status: ${isAdmin}`);
     return isAdmin;
   } catch (error) {
     console.error("Error checking tenant admin status:", error);

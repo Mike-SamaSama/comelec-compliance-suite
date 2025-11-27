@@ -54,7 +54,7 @@ export default function SignupPage() {
       </div>
 
       <form action={formAction} className="space-y-4">
-        {state?.type === 'error' && state.message && !state.errors && (
+        {state?.type === 'error' && state.message && !state.errors?.name && !state.errors?.organizationName && !state.errors?.email && !state.errors?.password && !state.errors?.consent && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Signup Failed</AlertTitle>

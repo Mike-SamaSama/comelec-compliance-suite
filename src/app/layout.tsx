@@ -1,7 +1,9 @@
+
 import type { Metadata } from 'next';
 import { Poppins, PT_Sans } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/components/providers/auth-provider';
+import { FirebaseErrorListener } from '@/components/providers/firebase-error-listener';
 import './globals.css';
 import { cn } from '@/lib/utils';
 
@@ -36,6 +38,7 @@ export default function RootLayout({
       </head>
       <body className={cn('font-body antialiased', fontPoppins.variable, fontPTSans.variable)}>
         <AuthProvider>
+          <FirebaseErrorListener />
           {children}
           <Toaster />
         </AuthProvider>

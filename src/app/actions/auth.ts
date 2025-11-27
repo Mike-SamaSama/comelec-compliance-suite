@@ -10,6 +10,7 @@ import {
 import { app } from "@/lib/firebase/client"; 
 import { getAdminApp, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
+import { FirestorePermissionError } from "@/lib/firebase/errors";
 
 
 const auth = getAuth(app);
@@ -33,6 +34,8 @@ export type CreateOrgState = {
     organizationName?: string[];
     _form?: string[];
   };
+  // Add a field to carry the permission error details to the client
+  permissionErrorContext?: any;
 };
 
 export async function createOrganizationForNewUser(prevState: CreateOrgState, formData: FormData): Promise<CreateOrgState> {
@@ -50,7 +53,7 @@ export async function createOrganizationForNewUser(prevState: CreateOrgState, fo
 
   try {
     // Verify the ID token to ensure the request is from an authenticated user
-    await adminAuth.verifyIdToken(idToken);
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
     
     // Pre-check: Does an organization with this name already exist?
     const orgsRef = adminDb.collection("organizations");
@@ -69,33 +72,35 @@ export async function createOrganizationForNewUser(prevState: CreateOrgState, fo
     const orgRef = adminDb.collection("organizations").doc();
     const orgId = orgRef.id;
 
-    batch.set(orgRef, {
+    const orgData = {
       name: organizationName,
       ownerId: uid,
       createdAt: new Date(),
-    });
+    };
+    batch.set(orgRef, orgData);
 
     const userInOrgRef = adminDb.doc(`organizations/${orgId}/users/${uid}`);
-    batch.set(userInOrgRef, {
+    const userInOrgData = {
       displayName: displayName,
       email: email,
       photoURL: null,
       isAdmin: true, // First user is the admin
       createdAt: new Date(),
-    });
+    };
+    batch.set(userInOrgRef, userInOrgData);
     
     const userOrgMappingRef = adminDb.doc(`user_org_mappings/${uid}`);
-    batch.set(userOrgMappingRef, {
-        organizationId: orgId,
-    });
+    const userOrgMappingData = { organizationId: orgId };
+    batch.set(userOrgMappingRef, userOrgMappingData);
 
     const consentRef = adminDb.doc(`consents/${uid}`);
-    batch.set(consentRef, {
+    const consentData = {
       userId: uid,
       termsOfService: true,
       privacyPolicy: true,
       timestamp: new Date(),
-    });
+    };
+    batch.set(consentRef, consentData);
     
     await batch.commit();
 
@@ -106,6 +111,27 @@ export async function createOrganizationForNewUser(prevState: CreateOrgState, fo
 
   } catch (error: any) {
     console.error("Error in createOrganizationForNewUser: ", error);
+    
+    // Catch the Firestore permission error
+    if (error.code === 7 || (error.code === 'permission-denied' && error.details?.includes('permission-denied'))) {
+        
+        // This is where we create the rich, contextual error.
+        // Since this is a batch write, we can report on the multiple paths.
+        const permissionError = new FirestorePermissionError({
+            path: `BATCH WRITE to: /organizations, /organizations/${'orgId'}/users, /user_org_mappings, /consents`,
+            operation: 'write',
+            requestResourceData: "See multiple resources created during signup.",
+        }, error);
+
+        // Instead of re-throwing, we return it in the form state
+        // to be handled by the client.
+        return { 
+            type: 'error', 
+            message: permissionError.message,
+            permissionErrorContext: permissionError.context,
+        };
+    }
+    
     return { type: 'error', message: error.message || "An unexpected error occurred." };
   }
   

@@ -1,14 +1,15 @@
 
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
-
+import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { FirestorePermissionError } from '@/lib/firebase/errors';
 import { auth } from '@/lib/firebase/client';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { createOrganizationForNewUser } from '@/app/actions/auth';
+import { createOrganizationForNewUser, CreateOrgState } from '@/app/actions/auth';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,7 @@ type FormState = {
     consent?: string[];
     _form?: string[];
   };
+  permissionErrorContext?: any;
 };
 
 export default function SignupPage() {
@@ -77,14 +79,19 @@ export default function SignupPage() {
         orgFormData.append('organizationName', organizationName);
         orgFormData.append('email', email);
 
-        const orgState = await createOrganizationForNewUser({ type: null, message: '' }, orgFormData);
+        const orgState:CreateOrgState = await createOrganizationForNewUser({ type: null, message: '' }, orgFormData);
 
         if (orgState.type === 'error') {
+            if (orgState.permissionErrorContext) {
+                 if (process.env.NODE_ENV === 'development') {
+                    const permissionError = new FirestorePermissionError(orgState.permissionErrorContext);
+                    errorEmitter.emit('permission-error', permissionError);
+                 }
+            }
           // If org creation fails, we should ideally delete the user.
-          // For now, we'll just show the error.
           setFormState({ 
             message: orgState.message,
-            errors: orgState.errors,
+            errors: (orgState as any).errors,
           });
           // Clean up created user if org creation fails
           await user.delete();
@@ -118,7 +125,7 @@ export default function SignupPage() {
       </div>
 
       <form action={handleSubmit} className="space-y-4">
-        {formState?.message && !emailInUse && (
+        {formState?.message && !emailInUse && !formState.permissionErrorContext && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Signup Failed</AlertTitle>

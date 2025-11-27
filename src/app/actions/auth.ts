@@ -1,3 +1,4 @@
+
 "use server";
 
 import { z } from "zod";
@@ -29,7 +30,7 @@ export async function signUpWithOrganization(prevState: any, formData: FormData)
 
   if (!validatedFields.success) {
     return {
-      type: "error",
+      type: "error" as const,
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Please correct the errors below.",
       fields: Object.fromEntries(formData.entries())
@@ -79,15 +80,20 @@ export async function signUpWithOrganization(prevState: any, formData: FormData)
 
     await batch.commit();
 
-    return { type: "success", message: "Account created successfully! Redirecting..." };
+    return { type: "success" as const, message: "Account created successfully! Redirecting..." };
   } catch (error: any) {
-    let errorMessage = "An unexpected error occurred.";
+    let errorMessage = "An unexpected error occurred during signup.";
+    const fieldErrors: { [key: string]: string[] } = {};
+
     if (error.code === "auth/email-already-in-use") {
-      errorMessage = "This email is already registered.";
+        errorMessage = "This email address is already in use by another account.";
+        fieldErrors.email = [errorMessage];
     }
+    
     return { 
-      type: "error", 
-      message: errorMessage,
+      type: "error" as const, 
+      message: "Signup Failed",
+      errors: fieldErrors,
       fields: Object.fromEntries(formData.entries()) 
     };
   }

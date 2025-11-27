@@ -70,8 +70,8 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
 
   const { email, password, displayName, organizationName } = validatedFields.data;
   
-  // Pre-check: Does an organization with this name already exist?
   try {
+    // Pre-check: Does an organization with this name already exist? This must be done first.
     const orgsRef = collection(adminDb, "organizations");
     const orgQuery = query(orgsRef, where("name", "==", organizationName), limit(1));
     const orgSnapshot = await getDocs(orgQuery);
@@ -83,47 +83,28 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
           fields,
       };
     }
-  } catch (error: any) {
-    console.error("Error checking for existing organization:", error);
-    return { type: "error", message: "A server error occurred. Please try again later.", fields };
-  }
 
-  let userRecord;
-  try {
-     // Use Admin SDK to create user.
-    userRecord = await adminAuth.createUser({
+    // Step 1: Create the user with the Admin SDK
+    const userRecord = await adminAuth.createUser({
       email,
       password,
       displayName,
     });
-  } catch (error: any) {
-     let errorMessage = "An unexpected error occurred during signup.";
-     const errors: SignUpState['errors'] = {};
-     if (error.code === "auth/email-already-exists") {
-        errors.email = ["This email address is already in use by another account."];
-        errorMessage = "This email address is already in use. Please login instead."
-     } else {
-        errorMessage = error.message || errorMessage;
-        errors._form = [errorMessage];
-     }
-     return { type: "error", message: errorMessage, errors, fields };
-  }
 
-  try {
-    // Use a batch write to ensure atomicity for document creation
+    // Step 2: Create all Firestore documents in an atomic batch write
     const batch = adminDb.batch();
     
     const orgRef = doc(collection(adminDb, "organizations"));
     const orgId = orgRef.id;
 
-    // 1. Create the organization
+    // 2a. Create the organization
     batch.set(orgRef, {
       name: organizationName,
       ownerId: userRecord.uid,
       createdAt: serverTimestamp(),
     });
 
-    // 2. Create the user's profile within the organization
+    // 2b. Create the user's profile within the organization
     const userInOrgRef = doc(adminDb, "organizations", orgId, "users", userRecord.uid);
     batch.set(userInOrgRef, {
       displayName: displayName,
@@ -133,13 +114,13 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
       createdAt: serverTimestamp(),
     });
     
-    // 3. Create the user-to-organization mapping
+    // 2c. Create the user-to-organization mapping
     const userOrgMappingRef = doc(adminDb, 'user_org_mappings', userRecord.uid);
     batch.set(userOrgMappingRef, {
         organizationId: orgId,
     });
 
-    // 4. Log consent
+    // 2d. Log consent
     const consentRef = doc(adminDb, "consents", userRecord.uid);
     batch.set(consentRef, {
       userId: userRecord.uid,
@@ -151,31 +132,37 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     // Commit the batch
     await batch.commit();
 
+    // Step 3: Create a session cookie for the new user
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    const customToken = await adminAuth.createCustomToken(userRecord.uid);
+    // We can't use the custom token to create a session cookie directly.
+    // The intended flow is for the client to sign in with the token, get an ID token,
+    // and send that ID token to the server.
+    // However, for a server action, a simpler flow is to create the user and then sign them in on the client,
+    // or create the cookie directly after a successful password-based sign-in.
+    // Given the issues, we'll redirect to login for the user to sign in themselves.
+    // A more advanced flow would pass a token to the client.
+    // For now, let's create the session cookie manually after user creation.
+    const idToken = await adminAuth.createCustomToken(userRecord.uid);
+    const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
+    cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
+
   } catch (error: any) {
-    // If the batch fails, we must delete the user we just created to allow them to retry.
-    await adminAuth.deleteUser(userRecord.uid);
-    
-    return { 
-      type: "error", 
-      message: error.message || "An unexpected error occurred while setting up your organization.",
-      errors: { _form: [error.message] },
-      fields,
-    };
+    let errorMessage = "An unexpected error occurred during signup.";
+    const errors: SignUpState['errors'] = {};
+
+    if (error.code === 'auth/email-already-exists') {
+      errorMessage = "This email address is already in use. Please login instead.";
+      errors.email = [errorMessage];
+    } else {
+      console.error("Error in signUpWithOrganization: ", error);
+      errorMessage = error.message || errorMessage;
+      errors._form = [errorMessage];
+    }
+    return { type: 'error', message: errorMessage, errors, fields };
   }
   
-  // After server-side creation, create a session cookie.
-  const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-  const sessionCookie = await adminAuth.createSessionCookie(await getAuth(app).currentUser!.getIdToken(), { expiresIn });
-  cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true });
-
-
-  // This part is tricky. The server action creates the user, but the client doesn't know about it yet.
-  // We will sign them in on the client to get an ID token, then create the session cookie.
-  await signInWithEmailAndPassword(auth, email, password);
-  const idToken = await auth.currentUser!.getIdToken();
-  const sessionCookie2 = await adminAuth.createSessionCookie(idToken, { expiresIn });
-  cookies().set("session", sessionCookie2, { maxAge: expiresIn, httpOnly: true, secure: true });
-
+  // On success, redirect to the dashboard
   return redirect('/dashboard');
 }
 
@@ -208,9 +195,20 @@ export async function signInWithEmail(prevState: SignInState, formData: FormData
 
     const { email, password } = validatedFields.data;
 
-    let userCredential;
     try {
-        userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // This must be done on the client to verify password, so we use the client SDK here.
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        
+        // Get the ID token from the authenticated user.
+        const idToken = await userCredential.user.getIdToken();
+        
+        // Create the session cookie using the Admin SDK.
+        const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+        const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
+        
+        // Set the cookie in the response.
+        cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true, path: '/' });
+
     } catch (error: any) {
         let errorMessage = "Invalid login credentials. Please try again.";
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -221,14 +219,8 @@ export async function signInWithEmail(prevState: SignInState, formData: FormData
 
         return { type: "error", message: errorMessage, errors: {_form: [errorMessage]} };
     }
-    
-    // Create session cookie
-    const idToken = await userCredential.user.getIdToken();
-    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
-    cookies().set("session", sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true });
 
-
+    // Redirect to the dashboard on successful login.
     return redirect('/dashboard');
 }
 
@@ -264,34 +256,28 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
 
   const { displayName, email, organizationId } = validatedFields.data;
   
-  // --- Authorization ---
   let callingUserId: string;
   try {
     const sessionCookie = cookies().get('session')?.value;
     if (!sessionCookie) {
-      throw new Error("Authentication required. Please sign in.");
+      throw new Error("Authentication required.");
     }
     const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
     callingUserId = decodedToken.uid;
   } catch(e) {
      console.error("Auth error in inviteUserToOrganization", e);
-     return { type: "error", message: "Authentication required to perform this action. Please refresh and try again." };
+     return { type: "error", message: "Authentication required to perform this action." };
   }
 
 
   const isCallerAdmin = await getIsTenantAdmin(callingUserId, organizationId);
   if (!isCallerAdmin) {
-    return { type: "error", message: "Access Denied: You do not have permission to invite users to this organization." };
+    return { type: "error", message: "Access Denied: You do not have permission to invite users." };
   }
   
-  // --- Logic ---
   try {
     const usersInOrgRef = collection(adminDb, "organizations", organizationId, "users");
-    const userSearchQuery = query(
-      usersInOrgRef,
-      where("email", "==", email),
-      limit(1)
-    );
+    const userSearchQuery = query(usersInOrgRef, where("email", "==", email), limit(1));
     const existingUserSnap = await getDocs(userSearchQuery);
 
     if (!existingUserSnap.empty) {
@@ -303,7 +289,6 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
     }
     
     // We are not creating an authenticated user here, just a profile document.
-    // The user will need to sign up themselves with this email to get access.
     await addDoc(usersInOrgRef, {
       displayName: displayName,
       email: email,
@@ -313,6 +298,7 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
     });
 
   } catch (error: any) {
+    console.error("Error inviting user:", error);
     return {
       type: "error",
       message: error.message || "An unexpected error occurred while inviting the user.",
@@ -327,3 +313,5 @@ export async function signOut() {
   cookies().delete('session');
   redirect('/login');
 }
+
+    

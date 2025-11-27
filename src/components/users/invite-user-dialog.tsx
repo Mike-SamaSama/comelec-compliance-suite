@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useActionState, useEffect, useMemo } from "react";
+import { useState, useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { PlusCircle, UserPlus, Loader2, AlertCircle } from "lucide-react";
 import { inviteUserToOrganization, type InviteUserState } from "@/app/actions/auth";
@@ -91,12 +91,12 @@ export function InviteUserDialog({ organizationId }: { organizationId: string })
                 <input type="hidden" name="organizationId" value={organizationId} />
                 <div className="space-y-2">
                     <Label htmlFor="displayName">Full Name</Label>
-                    <Input id="displayName" name="displayName" />
+                    <Input id="displayName" name="displayName" required />
                     {state?.errors?.displayName && <p className="text-sm font-medium text-destructive pt-1">{state.errors.displayName[0]}</p>}
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" />
+                    <Input id="email" name="email" type="email" required />
                     {state?.errors?.email && <p className="text-sm font-medium text-destructive pt-1">{state.errors.email[0]}</p>}
                 </div>
             </div>
@@ -111,3 +111,5 @@ export function InviteUserDialog({ organizationId }: { organizationId: string })
     </Dialog>
   );
 }
+
+    

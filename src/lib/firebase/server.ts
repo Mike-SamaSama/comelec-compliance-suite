@@ -1,14 +1,12 @@
 
 "use server";
 
-import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { FIREBASE_CONFIG } from './config';
 
 // This is a server-only file.
 
-// This structure allows us to lazy-initialize the admin app.
 let adminApp: App | undefined;
 let adminAuth: Auth | undefined;
 let adminDb: Firestore | undefined;
@@ -17,20 +15,16 @@ function getAdminApp(): { app: App; auth: Auth; db: Firestore } {
   if (adminApp && adminAuth && adminDb) {
     return { app: adminApp, auth: adminAuth, db: adminDb };
   }
-  
-  const existingApp = getApps().find((app) => app.name === 'admin');
-  
-  if (existingApp) {
-    adminApp = existingApp;
-  } else {
-    // In a managed environment, using initializeApp() without arguments
-    // uses Application Default Credentials (ADC), which is the standard and most secure method.
-    // The projectId is explicitly set to prevent mismatches between client and server.
-    adminApp = initializeApp({
-      projectId: FIREBASE_CONFIG.projectId,
-    }, 'admin');
-  }
 
+  // In a managed cloud environment, initializeApp() without arguments 
+  // uses Application Default Credentials (ADC), which is the most secure and standard method.
+  // We check if an app is already initialized to prevent re-initialization.
+  if (!getApps().length) {
+    adminApp = initializeApp();
+  } else {
+    adminApp = getApps()[0];
+  }
+  
   adminAuth = getAuth(adminApp);
   adminDb = getFirestore(adminApp);
 

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useActionState, useEffect } from 'react';
@@ -101,7 +102,7 @@ export default function SignupPage() {
 
         <SubmitButton />
       </form>
-      <p className="px-8 text-center text-sm text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground">
         Already have an account?{' '}
         <Link href="/login" className="underline underline-offset-4 hover:text-primary">
           Login

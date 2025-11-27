@@ -2,15 +2,18 @@
 "use server";
 
 import { z } from "zod";
+import { headers } from 'next/headers';
 import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
-import { doc, writeBatch, serverTimestamp, collection, getDocs, query, where, limit } from "firebase/firestore";
+import { doc, writeBatch, serverTimestamp, collection, getDocs, query, where, limit, getDoc, runTransaction } from "firebase/firestore";
 import { app, db } from "@/lib/firebase/client"; // Use client for auth on server
+import { adminAuth, getIsTenantAdmin } from "@/lib/firebase/server";
 import { redirect } from "next/navigation";
+import { Auth, signInWithCustomToken } from "firebase/auth";
 
 // This needs to be a separate instance for server actions
 const auth = getAuth(app);
@@ -74,23 +77,19 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // We also update the auth user's profile
     await updateProfile(user, { displayName: displayName });
 
     const batch = writeBatch(db);
 
-    // 1. Create a ref for the new organization to get a unique ID
     const orgRef = doc(collection(db, "organizations"));
     const orgId = orgRef.id;
 
-    // Now use that ID to set the data
     batch.set(orgRef, {
       name: organizationName,
       ownerId: user.uid,
       createdAt: serverTimestamp(),
     });
     
-    // 2. Create the user's profile within the organization subcollection, using the same ID
     const userInOrgRef = doc(db, "organizations", orgId, "users", user.uid);
     batch.set(userInOrgRef, {
       displayName: displayName,
@@ -100,13 +99,11 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
       createdAt: serverTimestamp(),
     });
     
-    // 3. Create a mapping in a root collection for easy organization lookup on login
     const userOrgMappingRef = doc(db, 'user_org_mappings', user.uid);
     batch.set(userOrgMappingRef, {
         organizationId: orgId,
     });
 
-    // 4. Log consent
     const consentRef = doc(db, "consents", user.uid);
     batch.set(consentRef, {
       userId: user.uid,
@@ -137,7 +134,6 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     };
   }
   
-  // This will be caught by the client and handled with a router.push
   return { type: 'success', message: 'Account created successfully!' };
 }
 
@@ -204,6 +200,23 @@ export type InviteUserState = {
   };
 };
 
+async function getUserIdFromHeader() {
+    const authHeader = headers().get('Authorization');
+    if (authHeader) {
+      const token = authHeader.split('Bearer ')[1];
+      if (token) {
+        try {
+          const decodedToken = await adminAuth.verifyIdToken(token);
+          return decodedToken.uid;
+        } catch (error) {
+          console.error("Error verifying ID token:", error);
+          return null;
+        }
+      }
+    }
+    return null;
+}
+
 export async function inviteUserToOrganization(prevState: InviteUserState, formData: FormData): Promise<InviteUserState> {
   const validatedFields = InviteUserSchema.safeParse(Object.fromEntries(formData.entries()));
 
@@ -216,6 +229,16 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
   }
 
   const { displayName, email, organizationId } = validatedFields.data;
+  const callingUserId = await getUserIdFromHeader();
+
+  if (!callingUserId) {
+    return { type: "error", message: "Authentication required to perform this action." };
+  }
+
+  const isCallerAdmin = await getIsTenantAdmin(callingUserId, organizationId);
+  if (!isCallerAdmin) {
+    return { type: "error", message: "Access Denied: You do not have permission to invite users to this organization." };
+  }
   
   try {
     const userSearchQuery = query(
@@ -234,14 +257,13 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
     }
 
     const batch = writeBatch(db);
-
     const newUserRef = doc(collection(db, "organizations", organizationId, "users"));
     
     batch.set(newUserRef, {
       displayName: displayName,
       email: email,
       photoURL: null,
-      isAdmin: false, // Invited users are members by default
+      isAdmin: false, 
       createdAt: serverTimestamp(),
     });
 
@@ -256,5 +278,3 @@ export async function inviteUserToOrganization(prevState: InviteUserState, formD
 
   return { type: "success", message: `${displayName} has been invited.` };
 }
-
-    

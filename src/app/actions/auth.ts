@@ -9,6 +9,7 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, writeBatch, serverTimestamp } from "firebase/firestore";
 import { app, db } from "@/lib/firebase/client"; // Use client for auth on server
+import { redirect } from "next/navigation";
 
 const auth = getAuth(app);
 
@@ -108,14 +109,13 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
 
     await batch.commit();
 
-    return { type: "success", message: "Account created successfully! Redirecting..." };
   } catch (error: any) {
     let errorMessage = "An unexpected error occurred during signup.";
     const errors: SignUpState['errors'] = {};
 
     if (error.code === "auth/email-already-in-use") {
-        errors.email = ["This email address is already in use."];
-        errorMessage = "Please correct the errors below."
+        errors.email = ["This email address is already in use by another account."];
+        errorMessage = "This email address is already in use. Please login instead."
     } else if (error.code === 'auth/api-key-not-valid') {
         errorMessage = "The Firebase API key is not valid. Please check your configuration.";
         errors._form = [errorMessage];
@@ -134,6 +134,8 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
       fields: fields,
     };
   }
+  
+  redirect('/dashboard');
 }
 
 
@@ -157,7 +159,6 @@ export async function signInWithEmail(prevState: any, formData: FormData) {
 
     try {
         await signInWithEmailAndPassword(auth, email, password);
-        return { type: "success", message: "Signed in successfully. Redirecting..." };
     } catch (error: any) {
         let errorMessage = "Invalid login credentials. Please try again.";
         if (error.code === 'auth/invalid-credential') {
@@ -172,4 +173,7 @@ export async function signInWithEmail(prevState: any, formData: FormData) {
 
         return { type: "error", message: errorMessage };
     }
+
+    redirect('/dashboard');
 }
+

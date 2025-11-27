@@ -4,15 +4,12 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
 import { AlertCircle, LogIn } from "lucide-react";
 import { signInWithEmail } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -24,21 +21,7 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { toast } = useToast();
   const [state, formAction] = useActionState(signInWithEmail, null);
-
-  useEffect(() => {
-    if (state?.type === "success") {
-      toast({
-        title: "Login Successful",
-        description: state.message,
-      });
-      const redirectUrl = searchParams.get('redirect') || '/dashboard';
-      router.push(redirectUrl);
-    }
-  }, [state, router, toast, searchParams]);
 
   return (
     <div className="space-y-6">

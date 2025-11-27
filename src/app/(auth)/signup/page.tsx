@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState, useEffect } from 'react';
@@ -11,7 +12,6 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, UserPlus } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -29,20 +29,7 @@ const initialState: SignUpState = {
 
 export default function SignupPage() {
   const router = useRouter();
-  const { toast } = useToast();
   const [state, formAction] = useActionState(signUpWithOrganization, initialState);
-
-  useEffect(() => {
-    if (state?.type === 'success') {
-      toast({
-        title: 'Account Created',
-        description: state.message,
-      });
-      // The middleware will handle redirection after cookie is set.
-      // A small delay might be needed for cookie to be set on client.
-      setTimeout(() => router.push('/dashboard'), 500);
-    }
-  }, [state, router, toast]);
 
   const emailInUse = state?.errors?.email?.[0].includes('already in use');
 
@@ -56,11 +43,11 @@ export default function SignupPage() {
       </div>
 
       <form action={formAction} className="space-y-4">
-        {state?.type === 'error' && state.errors?._form && (
+        {state?.type === 'error' && state.message && !emailInUse && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Signup Failed</AlertTitle>
-            <AlertDescription>{state.errors._form[0]}</AlertDescription>
+            <AlertDescription>{state.message}</AlertDescription>
           </Alert>
         )}
         <div className="space-y-2">

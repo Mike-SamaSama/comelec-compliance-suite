@@ -1,8 +1,9 @@
+
 "use client";
 
 import { createContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/client';
 import type { AuthContextType, UserProfile } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,9 +12,6 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Helper function to simulate fetching user profile data from Firestore
 async function getUserProfile(uid: string): Promise<UserProfile | null> {
-    // STUB: This is a placeholder. In a real app, this function would interact with Firestore.
-    // This is a simplified simulation. A real implementation should handle errors and edge cases.
-    
     // 1. Check if user is a platform admin
     const platformAdminRef = doc(db, 'platform_admins', uid);
     const platformAdminSnap = await getDoc(platformAdminRef);
@@ -77,23 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        
-        // Use onSnapshot for real-time profile updates
-        const userOrgMappingRef = doc(db, 'user_org_mappings', firebaseUser.uid);
-        const profileUnsubscribe = onSnapshot(userOrgMappingRef, async (snap) => {
-            const userProfile = await getUserProfile(firebaseUser.uid);
-            setProfile(userProfile);
-            setLoading(false);
-        });
-
-        // Detach listener on cleanup
-        return () => profileUnsubscribe();
-
+        const userProfile = await getUserProfile(firebaseUser.uid);
+        setProfile(userProfile);
       } else {
         setUser(null);
         setProfile(null);
-        setLoading(false);
       }
+      setLoading(false);
     });
 
     return () => unsubscribe();

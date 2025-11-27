@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
-import { doc, writeBatch, serverTimestamp, getDoc } from "firebase/firestore";
+import { doc, writeBatch, serverTimestamp, collection } from "firebase/firestore";
 import { app, db } from "@/lib/firebase/client"; // Use client for auth on server
 import { redirect } from "next/navigation";
 
@@ -80,9 +80,10 @@ export async function signUpWithOrganization(prevState: SignUpState, formData: F
     const batch = writeBatch(db);
 
     // 1. Create the new organization
-    // For this SaaS, we can use the new user's UID as the organization ID for simplicity and guaranteed uniqueness.
-    const orgId = user.uid;
-    const orgRef = doc(db, "organizations", orgId); 
+    // Generate a new document reference to get a unique ID
+    const orgRef = doc(collection(db, "organizations"));
+    const orgId = orgRef.id;
+
     batch.set(orgRef, {
       name: organizationName,
       ownerId: user.uid,
@@ -145,7 +146,17 @@ const SignInSchema = z.object({
   password: z.string().min(1, { message: "Password is required." }),
 });
 
-export async function signInWithEmail(prevState: any, formData: FormData) {
+export type SignInState = {
+  type: "error" | "success" | null;
+  message: string;
+  errors?: {
+    email?: string[];
+    password?: string[];
+    _form?: string[];
+  }
+}
+
+export async function signInWithEmail(prevState: SignInState | null, formData: FormData): Promise<SignInState> {
     const validatedFields = SignInSchema.safeParse(Object.fromEntries(formData.entries()));
 
     if (!validatedFields.success) {
@@ -168,7 +179,7 @@ export async function signInWithEmail(prevState: any, formData: FormData) {
           errorMessage = error.message || "An unexpected error occurred. Please try again.";
         }
 
-        return { type: "error", message: errorMessage };
+        return { type: "error", message: errorMessage, errors: {_form: [errorMessage]} };
     }
 
     redirect('/dashboard');

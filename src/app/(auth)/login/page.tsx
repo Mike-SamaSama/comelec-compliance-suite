@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { AlertCircle, LogIn } from "lucide-react";
-import { signInWithEmail } from "@/app/actions/auth";
+import { signInWithEmail, type SignInState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,8 +20,13 @@ function SubmitButton() {
   );
 }
 
+const initialState: SignInState = {
+  type: null,
+  message: ""
+};
+
 export default function LoginPage() {
-  const [state, formAction] = useActionState(signInWithEmail, null);
+  const [state, formAction] = useActionState(signInWithEmail, initialState);
 
   return (
     <div className="space-y-6">

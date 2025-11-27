@@ -12,17 +12,17 @@ import {
 } from "@/components/ui/sidebar";
 import { Gavel, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { auth } from "@/lib/firebase/client";
 import { useAuth } from "@/hooks/use-auth";
 import SidebarNav from "./sidebar-nav";
 import { UserNav } from "./user-nav";
 import { Separator } from "../ui/separator";
+import { signOut } from "@/app/actions/auth";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth();
 
   const handleLogout = async () => {
-    await auth.signOut();
+    await signOut();
   };
 
   return (
@@ -46,14 +46,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </SidebarContent>
         <SidebarFooter>
           <Separator className="mb-2" />
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-sidebar-foreground"
-            onClick={handleLogout}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            <span className="group-data-[collapsible=icon]:hidden">Logout</span>
-          </Button>
+          <form action={handleLogout}>
+            <Button
+                type="submit"
+                variant="ghost"
+                className="w-full justify-start text-sidebar-foreground"
+            >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span className="group-data-[collapsible=icon]:hidden">Logout</span>
+            </Button>
+          </form>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>

@@ -8,11 +8,17 @@ const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
   ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
   : undefined;
 
+// Ensure there is a defined service account
+if (!serviceAccount) {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.");
+}
+
+
 const adminApp =
   getApps().find((app) => app.name === 'admin') ||
   initializeApp(
     {
-      credential: cert(serviceAccount!),
+      credential: cert(serviceAccount),
     },
     'admin'
   );

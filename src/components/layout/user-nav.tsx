@@ -13,24 +13,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
-import { auth } from "@/lib/firebase/client"
+import { signOut } from "@/app/actions/auth";
 
 export function UserNav() {
   const { user, profile } = useAuth();
 
   if (!user || !profile) return null;
 
-  const handleLogout = async () => {
-    await auth.signOut();
-  };
-
   const getInitials = (name: string | null | undefined) => {
     if (!name) return "U";
     const parts = name.split(" ");
-    if (parts.length > 1) {
-      return parts[0][0] + parts[parts.length - 1][0];
+    if (parts.length > 1 && parts[0] && parts[parts.length - 1]) {
+      return (parts[0][0] + (parts[parts.length - 1][0])).toUpperCase();
     }
-    return name.substring(0, 2);
+    return name.substring(0, 2).toUpperCase();
   };
 
 
@@ -58,10 +54,14 @@ export function UserNav() {
           {/* Add links to profile, etc. here */}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Log out</span>
-        </DropdownMenuItem>
+        <form action={signOut}>
+            <DropdownMenuItem asChild>
+                <button type="submit" className="w-full cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                </button>
+            </DropdownMenuItem>
+        </form>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -78,7 +78,8 @@ export default function AdminPage() {
           <p className="mb-6 text-sm text-gray-600">
             Add new COMELEC hearing dates, update filing deadlines, and trigger compliance alerts for users.
           </p>
-          <Link href="/admin/calendar">
+          {/* ✅ FIX: Ensure Link wraps the Button correctly */}
+          <Link href="/admin/calendar" className="w-full block">
             <Button className="w-full gap-2">
               Manage Deadlines <ArrowRight className="h-4 w-4" />
             </Button>
@@ -118,7 +119,8 @@ export default function AdminPage() {
           <p className="mb-6 text-sm text-gray-600">
             Upload PDFs, resolutions, and legal guidelines used by the AI Legal Assistant to answer questions.
           </p>
-          <Link href="/admin/knowledge-base">
+          {/* ✅ FIX: Ensure Link wraps the Button correctly */}
+          <Link href="/admin/knowledge-base" className="w-full block">
             <Button variant="outline" className="w-full">
               Manage Documents
             </Button>
@@ -139,7 +141,8 @@ export default function AdminPage() {
           <p className="mb-6 text-sm text-gray-600">
             View active users, approve new registrations, and manage admin privileges for the suite.
           </p>
-          <Link href="/admin/users">
+          {/* ✅ FIX: Ensure Link wraps the Button correctly */}
+          <Link href="/admin/users" className="w-full block">
             <Button variant="outline" className="w-full">
               View Users
             </Button>
@@ -160,7 +163,9 @@ export default function AdminPage() {
           </div>
         </div>
         
-        <DraftingTemplatesManager />
+        <Suspense fallback={<div>Loading editor...</div>}>
+          <DraftingTemplatesManager />
+        </Suspense>
       </div>
 
     </div>

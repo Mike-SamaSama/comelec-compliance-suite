@@ -1,9 +1,7 @@
-
 import type { Metadata } from 'next';
 import { Poppins, PT_Sans } from 'next/font/google';
-import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/components/providers/auth-provider';
-import { FirebaseErrorListener } from '@/components/providers/firebase-error-listener';
+// ✅ FIX: Import the AuthProvider from your central firebase file
+import AuthProvider from '@/firebase'; 
 import './globals.css';
 import { cn } from '@/lib/utils';
 
@@ -11,12 +9,14 @@ const fontPoppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-headline',
+  display: 'swap',
 });
 
 const fontPTSans = PT_Sans({
   subsets: ['latin'],
   weight: ['400', '700'],
   variable: '--font-body',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -31,16 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
-      </head>
-      <body className={cn('font-body antialiased', fontPoppins.variable, fontPTSans.variable)}>
+      <body className={cn('font-body antialiased min-h-screen bg-background', fontPoppins.variable, fontPTSans.variable)}>
+        {/* This Provider now matches the one used in your Login Page */}
         <AuthProvider>
-          <FirebaseErrorListener />
           {children}
-          <Toaster />
         </AuthProvider>
       </body>
     </html>

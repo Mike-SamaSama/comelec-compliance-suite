@@ -2,6 +2,8 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+// ✅ FIX: Import Suspense so we can use it in the JSX below
+import { Suspense } from 'react'; 
 import { 
   Calendar, 
   FileText, 
@@ -78,7 +80,6 @@ export default function AdminPage() {
           <p className="mb-6 text-sm text-gray-600">
             Add new COMELEC hearing dates, update filing deadlines, and trigger compliance alerts for users.
           </p>
-          {/* ✅ FIX: Ensure Link wraps the Button correctly */}
           <Link href="/admin/calendar" className="w-full block">
             <Button className="w-full gap-2">
               Manage Deadlines <ArrowRight className="h-4 w-4" />
@@ -119,7 +120,6 @@ export default function AdminPage() {
           <p className="mb-6 text-sm text-gray-600">
             Upload PDFs, resolutions, and legal guidelines used by the AI Legal Assistant to answer questions.
           </p>
-          {/* ✅ FIX: Ensure Link wraps the Button correctly */}
           <Link href="/admin/knowledge-base" className="w-full block">
             <Button variant="outline" className="w-full">
               Manage Documents
@@ -141,7 +141,6 @@ export default function AdminPage() {
           <p className="mb-6 text-sm text-gray-600">
             View active users, approve new registrations, and manage admin privileges for the suite.
           </p>
-          {/* ✅ FIX: Ensure Link wraps the Button correctly */}
           <Link href="/admin/users" className="w-full block">
             <Button variant="outline" className="w-full">
               View Users

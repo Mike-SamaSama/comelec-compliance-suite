@@ -3,37 +3,39 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-// ✅ FIX 1: Import directly from Firebase to avoid "Module not found" errors
+// ✅ FIX: Import directly from the central firebase file to match Layout/Dashboard
 import { useUser } from '@/firebase'; 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Loader2, ShieldCheck, LogIn } from 'lucide-react';
 
 export default function LoginPage() {
-  // ✅ FIX 2: Use the direct firebase hook
-  const { user, isLoading, signInGuest } = useUser(); 
+  const { user, isLoading, signInGuest } = useUser();
   const router = useRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // 1. Auto-Redirect
+  // 1. Auto-Redirect: If already logged in, go to Dashboard
   useEffect(() => {
     if (!isLoading && user) {
       setIsRedirecting(true);
-      // ✅ FIX 3: Force a hard reload to ensure Dashboard loads cleanly
-      window.location.href = '/'; 
+      router.push('/'); 
     }
   }, [user, isLoading, router]);
 
   const handleEnter = async () => {
     setIsRedirecting(true);
-    if (!user) {
-        // If not logged in, try to sign in as guest first
-        if (signInGuest) {
-            await signInGuest();
-        }
+    try {
+      if (!user) {
+        // Attempt guest login if not authenticated
+        await signInGuest();
+      }
+      // Redirect
+      router.push('/');
+    } catch (error) {
+      console.error("Login failed", error);
+      setIsRedirecting(false);
+      alert("Login failed. Please try again.");
     }
-    // Force navigation to dashboard
-    window.location.href = '/';
   };
 
   if (isLoading) {

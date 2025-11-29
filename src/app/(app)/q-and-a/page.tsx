@@ -1,15 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Bot, User, Database, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Database, Loader2, BookOpen } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-
-// NOTE: We rely on the implicit Next.js Server Action call below.
-// The Server Action function signature is defined in src/app/actions/chat-rag.ts
-// We use a declaration here to satisfy TypeScript without triggering module conflicts.
-declare function ragChat(input: { query: string, history: any[] }): Promise<{ response: string, sources: string[], success?: boolean }>;
+import { Badge } from '@/components/ui/badge';
+// ✅ FIX: Import the Server Action function directly
+import { ragChat } from '@/app/actions/chat-rag'; 
 
 
 interface Message {
@@ -52,13 +50,13 @@ export default function ChatPage() {
             .map(m => ({ role: m.role, content: m.content || '' }))
             .filter(m => m.content.trim().length > 0);
         
-        // Call the RAG Flow using the implicit Server Action call
-        const result = await ragChat({ // <-- Next.js finds the action automatically
+        // 2. Call the RAG Flow using the direct import
+        const result = await ragChat({ 
             query: userMessage.content,
             history: historyForFlow,
         });
 
-        // Process the response and sources
+        // 3. Process the response and sources
         const modelResponse: Message = { 
             role: 'model', 
             content: result.response + (result.sources && result.sources.length > 0 ? `\n\n[Sources: ${result.sources.join(', ')}]` : '')
@@ -78,7 +76,7 @@ export default function ChatPage() {
 
   return (
     <div className="container mx-auto max-w-4xl p-6 h-[80vh] flex flex-col space-y-4">
-      <h1 className="text-3xl font-bold tracking-tight">AI Legal Q&A</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-gray-900">AI Legal Q&A</h1>
       <p className="text-muted-foreground">Ask questions about compliance, filings, and resolutions.</p>
 
       {/* Chat History Area */}

@@ -15,10 +15,14 @@ import {
   LogOut,
   LogIn
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+// FIX: We must rely on standard Tailwind classes if cn is failing.
+// We remove the cn import to prevent a crash, assuming utility classes are available.
+// import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-// ✅ FIX: Import from the new Auth Provider instead of direct Firebase file
-import { useAuth } from '@/components/providers/auth-provider'; 
+import { useUser } from '@/firebase'; 
+
+// Helper function placeholder for cn (if you have styling issues, you need to create src/lib/utils.ts)
+const cn = (...classes: string[]) => classes.filter(Boolean).join(' ');
 
 const menuItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
@@ -34,20 +38,22 @@ const menuItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  // ✅ FIX: Use the new hook which provides 'user' and 'signOut'
-  const { user, signOut } = useAuth();
+  const { user, signOut } = useUser();
 
-  // Logic for admin visibility (Temporary test logic)
+  // For testing, we allow guest users to see admin links.
+  // In a real app, this would be an admin check: const isAdmin = user?.role === 'admin';
   const isAdmin = true; 
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r bg-gray-900 text-white">
+    <div className="flex h-screen w-64 flex-col border-r bg-gray-900 text-white flex-shrink-0">
+      {/* Sidebar Header */}
       <div className="flex h-16 items-center border-b border-gray-800 px-6">
         <Gavel className="mr-2 h-6 w-6 text-blue-500" />
         <span className="text-lg font-bold">COMELEC Suite</span>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      {/* Navigation Menu */}
+      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {menuItems.map((item) => {
           if (item.adminOnly && !isAdmin) return null;
           const isActive = pathname === item.href;
@@ -70,6 +76,7 @@ export function AppSidebar() {
         })}
       </nav>
 
+      {/* User Footer */}
       <div className="border-t border-gray-800 p-4">
         {user ? (
           <div className="space-y-4">
